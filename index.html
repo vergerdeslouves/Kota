@@ -97,6 +97,19 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .chip.sel{border-color:var(--ember);background:#E4ECCB}
 .chip .qty{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;margin-left:10px;border-radius:999px;background:var(--ember);color:#12201D;font-weight:700;font-size:16px}
 .chip .minus{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-left:6px;border-radius:999px;background:var(--char);font-weight:700}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:18px 12px;margin-bottom:8px}
+.app{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 2px;text-align:center}
+.app-icon{position:relative;width:84px;height:84px;border-radius:24px;display:grid;place-items:center;
+  box-shadow:0 2px 0 rgba(18,32,29,.08), 0 8px 18px rgba(18,32,29,.12);transition:transform .12s ease}
+.app:active .app-icon{transform:scale(.92)}
+.app.sel .app-icon{outline:4px solid var(--ember);outline-offset:3px}
+.app-icon svg{width:44px;height:44px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.badge{position:absolute;top:-9px;right:-9px;min-width:30px;height:30px;padding:0 8px;border-radius:999px;
+  background:var(--ember);color:#12201D;font-weight:700;font-size:16px;display:grid;place-items:center;border:3px solid var(--char-2)}
+.app-minus{position:absolute;top:-9px;left:-9px;width:30px;height:30px;border-radius:50%;background:var(--birch);color:var(--char-2);
+  font-weight:700;font-size:20px;line-height:1;display:grid;place-items:center;border:3px solid var(--char-2)}
+.app-name{font-weight:600;font-size:15px;line-height:1.2;max-width:120px}
+.app-price{font-size:14px;color:var(--birch-dim)}
 textarea,input,select{width:100%;font:inherit;color:var(--birch);background:var(--char);border:1px solid var(--line);border-radius:14px;padding:14px 16px;-webkit-user-select:text;user-select:text}
 textarea{min-height:84px;resize:none}
 label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;font-weight:600}
@@ -389,15 +402,43 @@ function parseItems(){
     return { cat, list };
   });
 }
+const GLYPHS = {
+  feu: '<path d="M24 44c-8 0-14-5.5-14-13 0-6 4-9.5 6-14 1 3.5 3 5 5 5.5C20 15 22 9 28 4c-.5 6 3 10 6 14 2.4 3.2 4 6.5 4 10 0 9-6 16-14 16z"/>',
+  vin: '<path d="M15 5h18c1 9-1 17-9 19-8-2-10-10-9-19z"/><path d="M15.5 13h17"/><path d="M24 24v15M16 43h16"/>',
+  bulles: '<path d="M19 4h10l-1 20c-.3 3-2 4.5-4 4.5S20.3 27 20 24z"/><path d="M24 28.5V41M17 44h14"/><circle cx="23" cy="13" r="1.4"/><circle cx="25.5" cy="18" r="1.2"/>',
+  biere: '<path d="M10 14h22v26a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4z"/><path d="M32 19h4a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-4"/><path d="M10 14c0-4 3-6 6-6 1-3 4-4 7-3 3-2 8-1 9 3 2 1 2 4 0 6"/><path d="M17 22v15M25 22v15"/>',
+  eau: '<path d="M24 4C18 13 12 20 12 28a12 12 0 0 0 24 0c0-8-6-15-12-24z"/><path d="M18 30a6 6 0 0 0 6 6"/>'
+};
+function styleFor(cat){
+  const c = (cat || "").toLowerCase();
+  if(/grill|feu|charbon/.test(c)) return { g:"feu", bg:"#2E3A2A", fg:"#F0A04B" };
+  if(/bulle|cr[ée]mant|champ/.test(c)) return { g:"bulles", bg:"#C9A64A", fg:"#FFF8E6" };
+  if(/bi[èe]re/.test(c)) return { g:"biere", bg:"#D88F2E", fg:"#FFF6E8" };
+  if(/sans|eau|soft/.test(c)) return { g:"eau", bg:"#4E8A8C", fg:"#EAF6F6" };
+  return { g:"vin", bg:"#7A2638", fg:"#F6E3E7" };
+}
+function splitPrice(it){
+  const m = it.match(/^(.*?)\s+[–-]\s+([\d.,]+\s*€)$/);
+  return m ? { name:m[1], price:m[2] } : { name:it, price:"" };
+}
 function renderItems(){
-  $("itemsList").innerHTML = parseItems().map(g => `
-    ${g.cat ? `<div class="cat">${esc(g.cat)}</div>` : ""}
-    <div class="chips">${g.list.map(it => {
-      const q = basket[it] || 0;
-      return `<button class="chip ${q ? "sel" : ""}" data-item="${esc(it)}">${esc(it)}${q ? `<span class="qty">${q}</span><span class="minus" data-minus="${esc(it)}" aria-label="Retirer">−</span>` : ""}</button>`;
-    }).join("")}</div>`).join("");
+  $("itemsList").innerHTML = parseItems().map(g => {
+    const st = styleFor(g.cat);
+    return `${g.cat ? `<div class="cat">${esc(g.cat)}</div>` : ""}
+    <div class="apps">${g.list.map(it => {
+      const q = basket[it] || 0, sp = splitPrice(it);
+      return `<button class="app ${q ? "sel" : ""}" data-item="${esc(it)}">
+        <span class="app-icon" style="background:${st.bg};color:${st.fg}">
+          <svg viewBox="0 0 48 48" aria-hidden="true">${GLYPHS[st.g]}</svg>
+          ${q ? `<span class="badge">${q}</span><span class="app-minus" data-minus="${esc(it)}" aria-label="Retirer un">−</span>` : ""}
+        </span>
+        <span class="app-name">${esc(sp.name)}</span>
+        ${sp.price ? `<span class="app-price">${esc(sp.price)}</span>` : ""}
+      </button>`;
+    }).join("")}</div>`;
+  }).join("");
   const n = Object.values(basket).reduce((a,b) => a+b, 0);
-  $("manqueSummary").textContent = n ? Object.entries(basket).map(([k,v]) => `${v} × ${k}`).join(", ") : "Touchez un article, touchez encore pour en ajouter.";
+  $("manqueSummary").textContent = n ? Object.entries(basket).map(([k,v]) => `${v} × ${splitPrice(k).name}`).join(", ") : "Touchez un article, touchez encore pour en ajouter.";
   $("manqueSend").disabled = !n && !$("manqueNote").value.trim();
 }
 $("itemsList").addEventListener("click", e => {
