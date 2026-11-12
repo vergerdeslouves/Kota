@@ -303,10 +303,10 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 <script>
 const DEF = {
   name: "Le kota",
-  topic: "",
+  topic: "verger-louves-kota-7Hq2",
   server: "https://ntfy.sh",
   pin: "1234",
-  spotify: "",
+  spotify: "https://open.spotify.com/playlist/4ilB75B3PLwN8GVFsll31Z",
   review: "",
   wifi: "",
   wifiPass: "",
@@ -318,6 +318,8 @@ const DEF = {
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; } };
 const store = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
 let cfg = Object.assign({}, DEF, load("kota_cfg") || {});
+if(!cfg.topic) cfg.topic = DEF.topic;
+if(!cfg.spotify) cfg.spotify = DEF.spotify;
 let session = load("kota_session");
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -454,6 +456,7 @@ function renderMusic(){
   const src = spotifyEmbed(cfg.spotify);
   $("musicBody").innerHTML = src
     ? `<iframe class="spotify" src="${src}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+       <a class="btn ghost" href="${esc(cfg.spotify)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;margin-top:14px;text-decoration:none">Ouvrir dans l’appli Spotify</a>
        <p class="hint">Le son sort de l’enceinte du kota. Pour changer de playlist ou monter le volume, appelez l’équipe.</p>`
     : `<div class="empty">Aucune playlist n’est encore réglée.</div>`;
 }
