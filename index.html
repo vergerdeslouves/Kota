@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gloock&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <style>
 :root{
@@ -365,7 +365,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 14</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 16</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -511,7 +511,8 @@ const T = {
     scanIntro:"Présentez le code-barres de votre bouteille devant la caméra.",
     scanAdded:"{n} ajouté à votre note", scanUnknown:"Code non reconnu. Appelez l’équipe si besoin.",
     scanNoCam:"La caméra n’est pas disponible. Autorisez-la ou appelez l’équipe.",
-    scanUnsupported:"Le scan n’a pas pu démarrer. Vérifiez que vous avez autorisé la caméra, ou réessayez."
+    scanUnsupported:"Le scan n’est pas possible sur cet appareil. Appelez l’équipe si besoin.",
+    scanLoadFail:"Le scan n’a pas pu se charger. Vérifiez votre connexion internet et réessayez."
   },
   de: {
     welcome:"Willkommen im Verger des Louves", greet:"Schönen Abend, {g}", infosBtn:"WLAN & Infos",
@@ -561,7 +562,8 @@ const T = {
     scanIntro:"Halten Sie den Strichcode Ihrer Flasche vor die Kamera.",
     scanAdded:"{n} wurde Ihrer Rechnung hinzugefügt", scanUnknown:"Code nicht erkannt. Rufen Sie bei Bedarf das Team.",
     scanNoCam:"Die Kamera ist nicht verfügbar. Bitte erlauben Sie den Zugriff oder rufen Sie das Team.",
-    scanUnsupported:"Scannen konnte nicht starten. Bitte Kamera erlauben und erneut versuchen."
+    scanUnsupported:"Scannen ist auf diesem Gerät nicht möglich. Rufen Sie bei Bedarf das Team.",
+    scanLoadFail:"Scannen konnte nicht geladen werden. Bitte Internetverbindung prüfen und erneut versuchen."
   },
   en: {
     welcome:"Welcome to Verger des Louves", greet:"Enjoy your evening, {g}", infosBtn:"Wi-Fi & info",
@@ -611,7 +613,8 @@ const T = {
     scanIntro:"Hold your bottle’s barcode in front of the camera.",
     scanAdded:"{n} added to your tab", scanUnknown:"Code not recognised. Call the team if needed.",
     scanNoCam:"The camera isn’t available. Allow access or call the team.",
-    scanUnsupported:"Scanning couldn’t start. Please allow the camera and try again."
+    scanUnsupported:"Scanning isn’t possible on this device. Call the team if needed.",
+    scanLoadFail:"Scanning couldn’t load. Check your internet connection and try again."
   }
 };
 const CAT_T = {
@@ -874,7 +877,8 @@ async function openCamera(){
 }
 async function startScan(){
   scanMsg(t("scanIntro"));
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof jsQR === "undefined"){ scanMsg(t("scanUnsupported"), "err"); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ scanMsg(t("scanUnsupported"), "err"); return; }
+  if(typeof jsQR === "undefined"){ scanMsg(t("scanLoadFail"), "err"); return; }
   const v = $("scanVideo");
   try{
     scanStream = await openCamera();
