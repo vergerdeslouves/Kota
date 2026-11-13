@@ -364,7 +364,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 10</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 11</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -853,7 +853,7 @@ $("manqueSend").addEventListener("click", async () => {
 });
 
 /* ---------- Scanner une boisson ---------- */
-let scanStream = null, zxReader = null, lastCode = "", lastAt = 0, scanBusy = false;
+let scanStream = null, zxReader = null, lastCode = "", lastAt = 0, scanBusy = false, scanWatchdog = null;
 function findByCode(code){
   if(!caisseProducts) return null;
   code = String(code || "").trim();
@@ -864,22 +864,29 @@ function findByCode(code){
   return caisseProducts.find(p => p.ean && String(p.ean).replace(/\D/g, "") === d) || null;
 }
 function scanMsg(txt, cls){ const el = $("scanStatus"); el.textContent = txt; el.className = "scan-status" + (cls ? " " + cls : ""); }
+async function openCamera(){
+  // La caméra arrière est demandée explicitement ; si l’appareil n’en propose pas, on se rabat sur n’importe quelle caméra.
+  try{ return await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:"environment" } }, audio:false }); }
+  catch(e){ return await navigator.mediaDevices.getUserMedia({ video:true, audio:false }); }
+}
 async function startScan(){
   scanMsg(t("scanIntro"));
-  if(typeof ZXing === "undefined"){ scanMsg(t("scanUnsupported"), "err"); return; }
+  if(typeof ZXing === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ scanMsg(t("scanUnsupported"), "err"); return; }
   const v = $("scanVideo");
   try{
+    scanStream = await openCamera();
+    v.srcObject = scanStream; v.muted = true; v.setAttribute("playsinline", "");
+    await v.play().catch(() => {});
     zxReader = zxReader || new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    const back = devices.find(d => /back|rear|environment/i.test(d.label));
-    const deviceId = back ? back.deviceId : (devices[devices.length - 1] || {}).deviceId;
-    await zxReader.decodeFromVideoDevice(deviceId || undefined, v, (result, err) => {
-      if(result) onCode(result.getText());
-    });
-    scanStream = v.srcObject;
+    zxReader.decodeFromVideoElement(v, (result) => { if(result) onCode(result.getText()); });
+    clearTimeout(scanWatchdog);
+    scanWatchdog = setTimeout(() => {
+      if(current && current.id === "sh-scan" && (!v.videoWidth || v.readyState < 2)) scanMsg(t("scanNoCam"), "err");
+    }, 4000);
   }catch(e){ scanMsg(t("scanNoCam"), "err"); }
 }
 function stopScan(){
+  clearTimeout(scanWatchdog);
   if(zxReader){ try{ zxReader.reset(); }catch(e){} }
   if(scanStream){ try{ scanStream.getTracks().forEach(tr => tr.stop()); }catch(e){} scanStream = null; }
   const v = $("scanVideo"); if(v) v.srcObject = null;
