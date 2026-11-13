@@ -13,7 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gloock&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <style>
 :root{
   color-scheme: light;
@@ -364,7 +365,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 12</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 14</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -632,7 +633,7 @@ const trItem = n => { if(lang === "fr") return n; let r = n; WORD_T.forEach(([fr
 /* ---------- Réglages ---------- */
 const DEF = {
   name:"Le kota", topic:"verger-louves-kota-7Hq2", server:"https://ntfy.sh", pin:"1234",
-  spotify:"https://open.spotify.com/playlist/4ilB75B3PLwN8GVFsll31Z", review:"",
+  spotify:"https://open.spotify.com/playlist/4ilB75B3PLwN8GVFsll31Z", review:"https://g.page/r/CXH48sGwV-ltEAE/review",
   book:"https://www.vergerdeslouves.fr", gift:"", insta:"https://www.instagram.com/au_verger_des_louves", taxis:"",
   wifi:"", wifiPass:"", end:"", potato:15,
   caisseCats:"Vins, Bières, Soft", extras:"Pour le grill : Charbon",
@@ -648,7 +649,7 @@ const DEF = {
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
 let cfg = Object.assign({}, DEF, load("kota_cfg") || {});
-["topic","spotify","book","infosDe","infosEn","help","helpDe","helpEn"].forEach(k => { if(!cfg[k]) cfg[k] = DEF[k]; });
+["topic","spotify","book","infosDe","infosEn","help","helpDe","helpEn","review"].forEach(k => { if(!cfg[k]) cfg[k] = DEF[k]; });
 if(!cfg.potato) cfg.potato = DEF.potato;
 // Mise à jour unique des textes (version 7) : reprend les textes validés par l’équipe
 if((cfg.textsVersion || 0) < 7){
@@ -853,7 +854,10 @@ $("manqueSend").addEventListener("click", async () => {
 });
 
 /* ---------- Scanner une boisson ---------- */
-let scanStream = null, zxReader = null, lastCode = "", lastAt = 0, scanBusy = false, scanWatchdog = null;
+// On lit chaque image nous-mêmes (via un <canvas>) avec deux lecteurs spécialisés :
+// jsQR pour nos propres étiquettes QR, Quagga pour les codes-barres classiques des bouteilles.
+let scanStream = null, scanRAF = null, scanCanvas = null, scanCtx = null, scanWatchdog = null,
+    lastCode = "", lastAt = 0, scanBusy = false, quaggaBusy = false, lastQuaggaAt = 0;
 function findByCode(code){
   if(!caisseProducts) return null;
   code = String(code || "").trim();
@@ -865,43 +869,56 @@ function findByCode(code){
 }
 function scanMsg(txt, cls){ const el = $("scanStatus"); el.textContent = txt; el.className = "scan-status" + (cls ? " " + cls : ""); }
 async function openCamera(){
-  // La caméra arrière est demandée explicitement ; si l’appareil n’en propose pas, on se rabat sur n’importe quelle caméra.
   try{ return await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:"environment" } }, audio:false }); }
   catch(e){ return await navigator.mediaDevices.getUserMedia({ video:true, audio:false }); }
 }
 async function startScan(){
   scanMsg(t("scanIntro"));
-  if(typeof ZXing === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ scanMsg(t("scanUnsupported"), "err"); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof jsQR === "undefined"){ scanMsg(t("scanUnsupported"), "err"); return; }
   const v = $("scanVideo");
   try{
     scanStream = await openCamera();
     v.srcObject = scanStream; v.muted = true; v.setAttribute("playsinline", "");
     await v.play().catch(() => {});
-    if(!zxReader){
-      // On indique explicitement les formats à chercher (codes-barres des bouteilles + nos QR codes)
-      // et on demande à la bibliothèque de « bien chercher », sinon elle reste discrète sur les codes-barres.
-      const hints = new Map();
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
-        ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
-        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
-        ZXing.BarcodeFormat.QR_CODE
-      ]);
-      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      zxReader = new ZXing.BrowserMultiFormatReader(hints, 120);
-    }
-    zxReader.decodeFromVideoElement(v, (result) => { if(result) onCode(result.getText()); });
-    clearTimeout(scanWatchdog);
-    scanWatchdog = setTimeout(() => {
-      if(current && current.id === "sh-scan" && (!v.videoWidth || v.readyState < 2)) scanMsg(t("scanNoCam"), "err");
-    }, 4000);
-  }catch(e){ scanMsg(t("scanNoCam"), "err"); }
+  }catch(e){ scanMsg(t("scanNoCam"), "err"); return; }
+  scanCanvas = scanCanvas || document.createElement("canvas");
+  scanCtx = scanCtx || scanCanvas.getContext("2d", { willReadFrequently:true });
+  clearTimeout(scanWatchdog);
+  scanWatchdog = setTimeout(() => {
+    if(current && current.id === "sh-scan" && !v.videoWidth) scanMsg(t("scanNoCam"), "err");
+  }, 4000);
+  cancelAnimationFrame(scanRAF);
+  scanLoop();
 }
 function stopScan(){
-  clearTimeout(scanWatchdog);
-  if(zxReader){ try{ zxReader.reset(); }catch(e){} }
+  clearTimeout(scanWatchdog); cancelAnimationFrame(scanRAF); scanRAF = null;
   if(scanStream){ try{ scanStream.getTracks().forEach(tr => tr.stop()); }catch(e){} scanStream = null; }
   const v = $("scanVideo"); if(v) v.srcObject = null;
+}
+function scanLoop(){
+  if(!current || current.id !== "sh-scan") return;
+  const v = $("scanVideo");
+  if(v.videoWidth){
+    scanCanvas.width = v.videoWidth; scanCanvas.height = v.videoHeight;
+    scanCtx.drawImage(v, 0, 0, scanCanvas.width, scanCanvas.height);
+    const img = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+    const qr = jsQR(img.data, img.width, img.height, { inversionAttempts:"dontInvert" });
+    if(qr && qr.data){ onCode(qr.data); }
+    else if(typeof Quagga !== "undefined" && !quaggaBusy && Date.now() - lastQuaggaAt > 280){
+      quaggaBusy = true; lastQuaggaAt = Date.now();
+      Quagga.decodeSingle({
+        src: scanCanvas.toDataURL("image/jpeg", 0.85),
+        numOfWorkers: 0,
+        inputStream: { size: Math.max(scanCanvas.width, scanCanvas.height) },
+        decoder: { readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader"] },
+        locate: true
+      }, result => {
+        quaggaBusy = false;
+        if(result && result.codeResult && result.codeResult.code) onCode(result.codeResult.code);
+      });
+    }
+  }
+  scanRAF = requestAnimationFrame(scanLoop);
 }
 async function onCode(code){
   if(code === lastCode && Date.now() - lastAt < 4000) return;
