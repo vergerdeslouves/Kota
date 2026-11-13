@@ -364,7 +364,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 9</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 10</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -406,6 +406,10 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <div class="cat" style="margin-top:28px">Raclette</div>
     <label class="f" for="cPotato">Délai pour les pommes de terre (minutes)</label>
     <input id="cPotato" type="number" min="1" inputmode="numeric">
+    <label class="f" for="cFondueDelay">Délai pour le caquelon à fondue (minutes)</label>
+    <input id="cFondueDelay" type="number" min="1" inputmode="numeric">
+    <label class="f" for="cMontdorDelay">Délai pour le Mont d’Or (minutes)</label>
+    <input id="cMontdorDelay" type="number" min="1" inputmode="numeric">
 
     <div class="cat" style="margin-top:28px">Affichage</div>
     <label class="f" for="cName">Nom affiché</label><input id="cName">
@@ -462,9 +466,9 @@ const T = {
     welcome:"Bienvenue au Verger des Louves", greet:"Bonne soirée, {g}", infosBtn:"Wi-Fi et infos",
     manqueT:"Il nous manque quelque chose", manqueS:"Du charbon, une bouteille, une bière…", manqueH:"Il nous manque…",
     racletteT:"Pommes de terre", racletteS:"Pour la raclette, prêtes en {n} min",
-    fondueT:"Caquelon à fondue", fondueS:"On vous l’apporte",
-    montdorT:"Mont d’Or", montdorS:"On vous l’apporte",
-    askedS:"Demande envoyée, ça arrive", askedSent:"C’est noté, on vous apporte ça.",
+    fondueT:"Caquelon à fondue", fondueS:"Prêt en {n} min",
+    montdorT:"Mont d’Or", montdorS:"Prêt en {n} min",
+    askedS:"Demande envoyée, ça arrive", askedSent:"C’est noté, ça arrive dans {n} minutes environ.",
     additionT:"L’addition", additionS:"On vous l’apporte",
     aideT:"Appeler l’équipe", aideS:"Le feu, la lumière, une question",
     musiqueT:"Musique", musiqueS:"Notre playlist Spotify",
@@ -512,9 +516,9 @@ const T = {
     welcome:"Willkommen im Verger des Louves", greet:"Schönen Abend, {g}", infosBtn:"WLAN & Infos",
     manqueT:"Uns fehlt etwas", manqueS:"Holzkohle, eine Flasche, ein Bier…", manqueH:"Uns fehlt…",
     racletteT:"Kartoffeln", racletteS:"Für das Raclette, fertig in {n} Min.",
-    fondueT:"Fondue-Caquelon", fondueS:"Wir bringen ihn Ihnen",
-    montdorT:"Mont d’Or", montdorS:"Wir bringen ihn Ihnen",
-    askedS:"Angefragt, kommt gleich", askedSent:"Notiert, wir bringen es Ihnen.",
+    fondueT:"Fondue-Caquelon", fondueS:"Fertig in {n} Min.",
+    montdorT:"Mont d’Or", montdorS:"Fertig in {n} Min.",
+    askedS:"Angefragt, kommt gleich", askedSent:"Notiert, kommt in etwa {n} Minuten.",
     additionT:"Die Rechnung", additionS:"Wir bringen sie Ihnen",
     aideT:"Team rufen", aideS:"Feuer, Licht, eine Frage",
     musiqueT:"Musik", musiqueS:"Unsere Spotify-Playlist",
@@ -562,9 +566,9 @@ const T = {
     welcome:"Welcome to Verger des Louves", greet:"Enjoy your evening, {g}", infosBtn:"Wi-Fi & info",
     manqueT:"We need something", manqueS:"Charcoal, a bottle, a beer…", manqueH:"We need…",
     racletteT:"Potatoes", racletteS:"For the raclette, ready in {n} min",
-    fondueT:"Fondue pot", fondueS:"We’ll bring it to you",
-    montdorT:"Mont d’Or", montdorS:"We’ll bring it to you",
-    askedS:"Request sent, on its way", askedSent:"Got it, we’ll bring it over.",
+    fondueT:"Fondue pot", fondueS:"Ready in {n} min",
+    montdorT:"Mont d’Or", montdorS:"Ready in {n} min",
+    askedS:"Request sent, on its way", askedSent:"Got it, on its way in about {n} minutes.",
     additionT:"The bill", additionS:"We’ll bring it to you",
     aideT:"Call the team", aideS:"Fire, lights, a question",
     musiqueT:"Music", musiqueS:"Our Spotify playlist",
@@ -632,6 +636,7 @@ const DEF = {
   book:"https://www.vergerdeslouves.fr", gift:"", insta:"https://www.instagram.com/au_verger_des_louves", taxis:"",
   wifi:"", wifiPass:"", end:"", potato:15,
   caisseCats:"Vins, Bières, Soft", extras:"Pour le grill : Charbon",
+  fondueDelay:15, montdorDelay:15,
   help:"Il y a trop de fumée\nUn souci de lumière\nUne question",
   helpDe:"Es ist zu viel Rauch\nEin Problem mit dem Licht\nEine Frage",
   helpEn:"There’s too much smoke\nA problem with the lights\nA question",
@@ -927,47 +932,42 @@ $("unlinkBtn").addEventListener("click", async () => {
 
 /* ---------- Raclette : pommes de terre ---------- */
 function fmtLeft(ms){ const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
-function updateOneShot(key, tileId, subId){
-  const on = !!(session && session[key]);
-  const tile = $(tileId);
-  tile.hidden = !on;
+const FORMULAS = {
+  raclette: { on: () => !!(session && session.raclette), delay: "potato", title: "Pommes de terre (raclette)", tag: "potato" },
+  fondue:   { on: () => !!(session && session.fondue),   delay: "fondueDelay", title: "Caquelon à fondue", tag: "fondue" },
+  montdor:  { on: () => !!(session && session.montdor),  delay: "montdorDelay", title: "Mont d’Or", tag: "montdor" }
+};
+function formulaTile(key){ return key === "raclette" ? "tileRaclette" : key === "fondue" ? "tileFondue" : "tileMontdor"; }
+function formulaSub(key){ return key === "raclette" ? "racletteSub" : key === "fondue" ? "fondueSub" : "montdorSub"; }
+function formulaDefaultText(key, n){ return t(key === "raclette" ? "racletteS" : key === "fondue" ? "fondueS" : "montdorS", {n}); }
+function updateFormula(key){
+  const f = FORMULAS[key], on = f.on(), tile = $(formulaTile(key));
+  tile.hidden = !on; if(key === "raclette") $("grid").classList.toggle("has-raclette", on);
   if(!on) return;
   const asked = !!(session && session[key + "Asked"]);
-  $(subId).textContent = asked ? t("askedS") : t(key === "fondue" ? "fondueS" : "montdorS");
+  const until = (session && session[key + "Until"]) || 0, left = until - Date.now(), waiting = asked && left > 0;
+  $(formulaSub(key)).textContent = waiting ? t("potatoCount", {t:fmtLeft(left)}) : asked ? t("askedS") : formulaDefaultText(key, cfg[f.delay]);
   tile.classList.toggle("asked", asked);
-}
-async function askOneShot(key, title){
-  if(!session || session[key + "Asked"]) return;
-  session[key + "Asked"] = true; saveSession(); updateOneShot(key, key === "fondue" ? "tileFondue" : "tileMontdor", key === "fondue" ? "fondueSub" : "montdorSub");
-  if(await notify(title, "À apporter dès que possible.", { priority:4, tags:[key] })){ toast(t("askedSent")); }
-  else { session[key + "Asked"] = false; saveSession(); updateOneShot(key, key === "fondue" ? "tileFondue" : "tileMontdor", key === "fondue" ? "fondueSub" : "montdorSub"); }
-}
-$("tileFondue").addEventListener("click", () => askOneShot("fondue", "Caquelon à fondue"));
-$("tileMontdor").addEventListener("click", () => askOneShot("montdor", "Mont d’Or"));
-function updateRaclette(){
-  updateOneShot("fondue", "tileFondue", "fondueSub");
-  updateOneShot("montdor", "tileMontdor", "montdorSub");
-  const on = !!(session && session.raclette);
-  $("tileRaclette").hidden = !on; $("grid").classList.toggle("has-raclette", on);
-  if(!on) return;
-  const left = (session.potatoUntil || 0) - Date.now();
-  const waiting = left > 0;
-  $("racletteSub").textContent = waiting ? t("potatoCount", {t:fmtLeft(left)}) : t("racletteS", {n:cfg.potato});
-  if(current && current.id === "sh-raclette"){
-    $("potatoState").innerHTML = waiting
-      ? `<p class="lead">${esc(t("potatoWait"))}</p><div class="big-count">${fmtLeft(left)}</div>`
-      : (session.potatoUntil && -left < 15 * 60000 ? `<p class="lead">${esc(t("potatoSoon"))}</p>` : "") + `<p class="lead">${esc(t("potatoIntro", {n:cfg.potato}))}</p>`;
-    $("potatoSend").disabled = waiting;
+  if(key === "raclette" && current && current.id === "sh-raclette"){
+    $("potatoState").innerHTML = asked
+      ? (waiting ? `<p class="lead">${esc(t("potatoWait"))}</p><div class="big-count">${fmtLeft(left)}</div>` : `<p class="lead">${esc(t("askedS"))}</p>`)
+      : `<p class="lead">${esc(t("potatoIntro", {n:cfg.potato}))}</p>`;
+    $("potatoSend").disabled = asked;
   }
 }
-$("potatoSend").addEventListener("click", async () => {
-  const n = Number(cfg.potato) || 15;
-  const at = new Date(Date.now() + n * 60000);
-  $("potatoSend").disabled = true;
-  if(await notify("Pommes de terre (raclette)", `À apporter vers ${hhmm(at)}, dans ${n} minutes`, { priority:4, tags:["potato"], kind:"potato", ackLabel:"C’est parti" })){
-    session.potatoUntil = at.getTime(); saveSession(); closeSheet(); toast(t("potatoSent", {n})); updateRaclette();
-  } else $("potatoSend").disabled = false;
-});
+function updateRaclette(){ Object.keys(FORMULAS).forEach(updateFormula); }
+async function askFormula(key){
+  if(!session || session[key + "Asked"]) return;
+  const f = FORMULAS[key], n = Number(cfg[f.delay]) || 15, at = new Date(Date.now() + n * 60000);
+  session[key + "Asked"] = true; session[key + "Until"] = at.getTime(); saveSession(); updateFormula(key);
+  if(key === "raclette") closeSheet();
+  if(await notify(f.title, `À apporter vers ${hhmm(at)}, dans ${n} minutes`, { priority:4, tags:[f.tag], kind:f.tag, ackLabel:"C’est parti" })){
+    toast(t("askedSent", {n}));
+  } else { session[key + "Asked"] = false; session[key + "Until"] = 0; saveSession(); updateFormula(key); }
+}
+$("tileFondue").addEventListener("click", () => askFormula("fondue"));
+$("tileMontdor").addEventListener("click", () => askFormula("montdor"));
+$("potatoSend").addEventListener("click", () => askFormula("raclette"));
 
 /* ---------- Addition ---------- */
 const PAY_FR = { card:"Carte bancaire", cash:"Espèces", later:"Pas encore décidé" };
@@ -1131,6 +1131,7 @@ function fillAdmin(){
   montdorToggle = !!session?.montdor; $("sMontdor").classList.toggle("sel", montdorToggle);
   $("cCats").value = cfg.caisseCats; $("cExtras").value = cfg.extras; updateLinkStatus();
   $("cTopic").value = cfg.topic; $("cServer").value = cfg.server; $("cName").value = cfg.name; $("cPotato").value = cfg.potato;
+  $("cFondueDelay").value = cfg.fondueDelay; $("cMontdorDelay").value = cfg.montdorDelay;
   $("cItems").value = cfg.items; $("cHelp").value = cfg.help; $("cHelpDe").value = cfg.helpDe; $("cHelpEn").value = cfg.helpEn; $("cSpotify").value = cfg.spotify; $("cReview").value = cfg.review;
   $("cBook").value = cfg.book; $("cGift").value = cfg.gift; $("cPhoto").value = cfg.photo || ""; $("cInsta").value = cfg.insta;
   $("cWifi").value = cfg.wifi; $("cWifiPass").value = cfg.wifiPass; $("cEnd").value = cfg.end;
@@ -1142,6 +1143,7 @@ $("cfgSave").addEventListener("click", () => {
   cfg = Object.assign(cfg, {
     name:$("cName").value.trim() || "Le kota", ...normNtfy($("cTopic").value, $("cServer").value),
     pin:p, potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
+    fondueDelay: Math.max(1, parseInt($("cFondueDelay").value, 10) || 15), montdorDelay: Math.max(1, parseInt($("cMontdorDelay").value, 10) || 15),
     caisseCats:$("cCats").value, extras:$("cExtras").value,
     items:$("cItems").value, help:$("cHelp").value, helpDe:$("cHelpDe").value, helpEn:$("cHelpEn").value, spotify:$("cSpotify").value.trim(), review:$("cReview").value.trim(),
     book:$("cBook").value.trim(), gift:$("cGift").value.trim(), photo:$("cPhoto").value.trim(), insta:$("cInsta").value.trim(),
@@ -1159,7 +1161,8 @@ $("testSend").addEventListener("click", async () => {
 $("sessionStart").addEventListener("click", () => {
   session = { group:$("sGroup").value.trim(), people:$("sPeople").value.trim(), welcome:$("sWelcome").value.trim(),
     raclette:racletteToggle, fondue:fondueToggle, montdor:montdorToggle,
-    start:Date.now(), warned:false, potatoUntil:0, fondueAsked:false, montdorAsked:false };
+    start:Date.now(), warned:false, racletteAsked:false, fondueAsked:false, montdorAsked:false,
+    potatoUntil:0, fondueUntil:0, montdorUntil:0 };
   saveSession(); basket = {}; lastBill = 0; lang = "fr"; closeSheet(); applyLang();
   toast("Soirée ouverte. Bonne soirée à eux !");
 });
