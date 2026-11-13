@@ -352,7 +352,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 5</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 7</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -595,7 +595,7 @@ const CAT_T = {
 const WORD_T = [
   ["Canette de bière",{de:"Bierdose",en:"Can of beer"}], ["Eau plate",{de:"Stilles Wasser",en:"Still water"}],
   ["Eau gazeuse",{de:"Sprudelwasser",en:"Sparkling water"}], ["Thé glacé",{de:"Eistee",en:"Iced tea"}],
-  ["Charbon",{de:"Holzkohle",en:"Charcoal"}]
+  ["Charbon",{de:"Holzkohle",en:"Charcoal"}], ["Bière",{de:"Bier",en:"Beer"}]
 ];
 let lang = "fr";
 const t = (k, v = {}) => String(T[lang][k] ?? T.fr[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? "");
@@ -606,22 +606,31 @@ const trItem = n => { if(lang === "fr") return n; let r = n; WORD_T.forEach(([fr
 const DEF = {
   name:"Le kota", topic:"verger-louves-kota-7Hq2", server:"https://ntfy.sh", pin:"1234",
   spotify:"https://open.spotify.com/playlist/4ilB75B3PLwN8GVFsll31Z", review:"",
-  book:"https://www.vergerdeslouves.fr", gift:"", insta:"", taxis:"",
+  book:"https://www.vergerdeslouves.fr", gift:"", insta:"https://www.instagram.com/au_verger_des_louves", taxis:"",
   wifi:"", wifiPass:"", end:"", potato:15,
   caisseCats:"Vins, Bières, Soft", extras:"Pour le grill : Charbon",
-  help:"Le feu ne prend pas\nIl y a trop de fumée\nUn souci de lumière ou de chauffage\nUne question\nAutre chose",
-  helpDe:"Das Feuer brennt nicht an\nEs ist zu viel Rauch\nProblem mit Licht oder Heizung\nEine Frage\nEtwas anderes",
-  helpEn:"The fire won’t light\nThere’s too much smoke\nA problem with lights or heating\nA question\nSomething else",
-  items:"Pour le grill : Charbon\nVins : Apremont – 22 €, Coussan – 22 €, Prélude – 22 €, Morgon – 28 €, Pinot noir « Meyer Thuet » – 18 €, Pinot noir 75 cl – 18 €, Pinot noir 37,5 cl – 11 €, Pinot gris 75 cl – 13 €, Pinot gris 37,5 cl – 9,50 €, Gewurztraminer 75 cl – 15 €, Gewurztraminer 37,5 cl – 10,50 €\nBulles : Crémant d’Alsace 75 cl – 20 €, Crémant d’Alsace 37,5 cl – 13 €, Champagne – 50 €\nBières à 3,50 € : IPA, White IPA, Pilsner, Weizen, Porter, Peter Cascade, Philippe Maurice, Millésime, Printemps, Noël, Winterbier\nAutres bières : Canette de bière – 4,50 €\nSans alcool : Eau plate 50 cl – 2 €, Eau plate 1 L – 3 €, Eau gazeuse 50 cl – 2 €, Eau gazeuse 1 L – 3 €, Coca-Cola – 2,50 €, Thé glacé – 2,50 €",
-  infos:"# Le grill\nNe laissez jamais le feu sans surveillance. Ajoutez le charbon petit à petit, pas plus de deux poignées à la fois.\n\n# La fumée\nSi la fumée reste dans le kota, appelez-nous : il faut régler la hotte.\n\n# Les toilettes\nÀ droite en sortant du kota, le long du verger.\n\n# En partant\nLaissez le feu s’éteindre seul, sans eau. On s’occupe du reste.",
-  infosDe:"# Der Grill\nLassen Sie das Feuer nie unbeaufsichtigt. Legen Sie die Holzkohle nach und nach auf, höchstens zwei Handvoll auf einmal.\n\n# Der Rauch\nWenn der Rauch im Kota bleibt, rufen Sie uns: Die Abzugshaube muss eingestellt werden.\n\n# Die Toiletten\nRechts, wenn Sie aus dem Kota kommen, entlang des Obstgartens.\n\n# Beim Gehen\nLassen Sie das Feuer von selbst ausgehen, ohne Wasser. Um den Rest kümmern wir uns.",
-  infosEn:"# The grill\nNever leave the fire unattended. Add charcoal little by little, no more than two handfuls at a time.\n\n# Smoke\nIf smoke stays inside the kota, call us: the hood needs adjusting.\n\n# Toilets\nOn the right as you leave the kota, along the orchard.\n\n# When you leave\nLet the fire die out on its own, without water. We’ll take care of the rest."
+  help:"Il y a trop de fumée\nUn souci de lumière\nUne question",
+  helpDe:"Es ist zu viel Rauch\nEin Problem mit dem Licht\nEine Frage",
+  helpEn:"There’s too much smoke\nA problem with the lights\nA question",
+  items:"Pour le grill : Charbon\nVins : Apremont – 22 €, Coussan – 22 €, Prélude – 22 €, Morgon – 28 €, Pinot noir – 18 €, Pinot noir 37,5 cl – 11 €, Pinot gris 75 cl – 13 €, Pinot gris 37,5 cl – 9,50 €, Gewurztraminer 75 cl – 15 €, Gewurztraminer 37,5 cl – 10,50 €\nBulles : Crémant d’Alsace 75 cl – 20 €, Crémant d’Alsace 37,5 cl – 13 €, Champagne – 50 €\nBières à 3,50 € : Bière – 3,50 €\nAutres bières : Canette de bière – 4,50 €\nSans alcool : Eau plate 50 cl – 2 €, Eau plate 1 L – 3 €, Eau gazeuse 50 cl – 2 €, Eau gazeuse 1 L – 3 €, Coca-Cola – 2,50 €, Thé glacé – 2,50 €",
+  infos:"# Le grill\nNe laissez jamais le feu sans surveillance. Ajoutez le charbon petit à petit.\n\n# La fumée\nSi la fumée reste dans le kota, appelez-nous.\n\n# Les toilettes\nÀ droite en sortant du kota, le long du verger. Il s’agit de toilettes sèches, la notice est dans les toilettes.\n\n# En partant\nLaissez le feu s’éteindre seul, sans eau. On s’occupe du reste.",
+  infosDe:"# Der Grill\nLassen Sie das Feuer nie unbeaufsichtigt. Legen Sie die Holzkohle nach und nach auf.\n\n# Der Rauch\nWenn der Rauch im Kota bleibt, rufen Sie uns.\n\n# Die Toiletten\nRechts, wenn Sie aus dem Kota kommen, entlang des Obstgartens. Es handelt sich um eine Trockentoilette, die Anleitung finden Sie in der Toilette.\n\n# Beim Gehen\nLassen Sie das Feuer von selbst ausgehen, ohne Wasser. Um den Rest kümmern wir uns.",
+  infosEn:"# The grill\nNever leave the fire unattended. Add charcoal little by little.\n\n# Smoke\nIf smoke stays inside the kota, call us.\n\n# Toilets\nOn the right as you leave the kota, along the orchard. It’s a dry toilet, and the instructions are inside.\n\n# When you leave\nLet the fire die out on its own, without water. We’ll take care of the rest."
 };
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
 let cfg = Object.assign({}, DEF, load("kota_cfg") || {});
 ["topic","spotify","book","infosDe","infosEn","help","helpDe","helpEn"].forEach(k => { if(!cfg[k]) cfg[k] = DEF[k]; });
 if(!cfg.potato) cfg.potato = DEF.potato;
+// Mise à jour unique des textes (version 7) : reprend les textes validés par l’équipe
+if((cfg.textsVersion || 0) < 7){
+  ["items","help","helpDe","helpEn","infos","infosDe","infosEn"].forEach(k => { cfg[k] = DEF[k]; });
+  if(!cfg.insta) cfg.insta = DEF.insta;
+  cfg.textsVersion = 7;
+  store("kota_cfg", cfg);
+}
+// Un lien qui ne commence pas par http n’est pas un lien : on l’ignore
+["review","book","gift","insta","photo","spotify"].forEach(k => { if(cfg[k] && !/^https?:\/\//i.test(cfg[k])) cfg[k] = ""; });
 let session = load("kota_session");
 const saveSession = () => store("kota_session", session);
 const $ = id => document.getElementById(id);
