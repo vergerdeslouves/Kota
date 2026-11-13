@@ -364,7 +364,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 11</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 12</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -877,7 +877,19 @@ async function startScan(){
     scanStream = await openCamera();
     v.srcObject = scanStream; v.muted = true; v.setAttribute("playsinline", "");
     await v.play().catch(() => {});
-    zxReader = zxReader || new ZXing.BrowserMultiFormatReader();
+    if(!zxReader){
+      // On indique explicitement les formats à chercher (codes-barres des bouteilles + nos QR codes)
+      // et on demande à la bibliothèque de « bien chercher », sinon elle reste discrète sur les codes-barres.
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.QR_CODE
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      zxReader = new ZXing.BrowserMultiFormatReader(hints, 120);
+    }
     zxReader.decodeFromVideoElement(v, (result) => { if(result) onCode(result.getText()); });
     clearTimeout(scanWatchdog);
     scanWatchdog = setTimeout(() => {
