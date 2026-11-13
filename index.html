@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gloock&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <style>
 :root{
   color-scheme: light;
@@ -79,7 +80,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .t-scan span{color:#B9C4B4}
 .grid.has-scan .t-addition{grid-row:1}
 .scan-box{position:relative;border-radius:20px;overflow:hidden;background:#111;aspect-ratio:4/3;max-height:52vh;margin:0 auto}
-.scan-box video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.scan-box video{width:100%;height:100%;object-fit:cover;display:block}
 .scan-frame{position:absolute;inset:20% 14%;border:4px solid var(--ember);border-radius:18px;box-shadow:0 0 0 2000px rgba(0,0,0,.28)}
 .scan-status{font-size:clamp(19px,2.2vw,24px);font-weight:600;text-align:center;margin:16px 0 4px;min-height:1.4em}
 .scan-status.ok{color:var(--ember-deep)}.scan-status.err{color:#A3322A}
@@ -352,7 +353,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 7</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 8</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -489,7 +490,7 @@ const T = {
     scanIntro:"Présentez le code-barres de votre bouteille devant la caméra.",
     scanAdded:"{n} ajouté à votre note", scanUnknown:"Code non reconnu. Appelez l’équipe si besoin.",
     scanNoCam:"La caméra n’est pas disponible. Autorisez-la ou appelez l’équipe.",
-    scanUnsupported:"Le scan n’est pas possible sur ce navigateur. Utilisez Chrome sur Android."
+    scanUnsupported:"Le scan n’a pas pu démarrer. Vérifiez que vous avez autorisé la caméra, ou réessayez."
   },
   de: {
     welcome:"Willkommen im Verger des Louves", greet:"Schönen Abend, {g}", infosBtn:"WLAN & Infos",
@@ -536,7 +537,7 @@ const T = {
     scanIntro:"Halten Sie den Strichcode Ihrer Flasche vor die Kamera.",
     scanAdded:"{n} wurde Ihrer Rechnung hinzugefügt", scanUnknown:"Code nicht erkannt. Rufen Sie bei Bedarf das Team.",
     scanNoCam:"Die Kamera ist nicht verfügbar. Bitte erlauben Sie den Zugriff oder rufen Sie das Team.",
-    scanUnsupported:"Scannen ist mit diesem Browser nicht möglich."
+    scanUnsupported:"Scannen konnte nicht starten. Bitte Kamera erlauben und erneut versuchen."
   },
   en: {
     welcome:"Welcome to Verger des Louves", greet:"Enjoy your evening, {g}", infosBtn:"Wi-Fi & info",
@@ -583,7 +584,7 @@ const T = {
     scanIntro:"Hold your bottle’s barcode in front of the camera.",
     scanAdded:"{n} added to your tab", scanUnknown:"Code not recognised. Call the team if needed.",
     scanNoCam:"The camera isn’t available. Allow access or call the team.",
-    scanUnsupported:"Scanning isn’t possible in this browser."
+    scanUnsupported:"Scanning couldn’t start. Please allow the camera and try again."
   }
 };
 const CAT_T = {
@@ -825,7 +826,7 @@ $("manqueSend").addEventListener("click", async () => {
 });
 
 /* ---------- Scanner une boisson ---------- */
-let scanStream = null, scanTimer = null, detector = null, lastCode = "", lastAt = 0, scanBusy = false;
+let scanStream = null, zxReader = null, lastCode = "", lastAt = 0, scanBusy = false;
 function findByCode(code){
   if(!caisseProducts) return null;
   code = String(code || "").trim();
@@ -838,21 +839,22 @@ function findByCode(code){
 function scanMsg(txt, cls){ const el = $("scanStatus"); el.textContent = txt; el.className = "scan-status" + (cls ? " " + cls : ""); }
 async function startScan(){
   scanMsg(t("scanIntro"));
-  if(!("BarcodeDetector" in window)){ scanMsg(t("scanUnsupported"), "err"); return; }
-  try{ detector = detector || new BarcodeDetector({ formats:["ean_13","ean_8","upc_a","upc_e","code_128","qr_code"] }); }
-  catch(e){ scanMsg(t("scanUnsupported"), "err"); return; }
-  try{ scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:1280 } }, audio:false }); }
-  catch(e){ scanMsg(t("scanNoCam"), "err"); return; }
-  if(!current || current.id !== "sh-scan"){ stopScan(); return; }
-  const v = $("scanVideo"); v.srcObject = scanStream; await v.play().catch(() => {});
-  scanTimer = setInterval(async () => {
-    if(!v.videoWidth || scanBusy) return;
-    try{ const codes = await detector.detect(v); if(codes.length) onCode(codes[0].rawValue); }catch(e){}
-  }, 300);
+  if(typeof ZXing === "undefined"){ scanMsg(t("scanUnsupported"), "err"); return; }
+  const v = $("scanVideo");
+  try{
+    zxReader = zxReader || new ZXing.BrowserMultiFormatReader();
+    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+    const back = devices.find(d => /back|rear|environment/i.test(d.label));
+    const deviceId = back ? back.deviceId : (devices[devices.length - 1] || {}).deviceId;
+    await zxReader.decodeFromVideoDevice(deviceId || undefined, v, (result, err) => {
+      if(result) onCode(result.getText());
+    });
+    scanStream = v.srcObject;
+  }catch(e){ scanMsg(t("scanNoCam"), "err"); }
 }
 function stopScan(){
-  clearInterval(scanTimer); scanTimer = null;
-  if(scanStream){ scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
+  if(zxReader){ try{ zxReader.reset(); }catch(e){} }
+  if(scanStream){ try{ scanStream.getTracks().forEach(tr => tr.stop()); }catch(e){} scanStream = null; }
   const v = $("scanVideo"); if(v) v.srcObject = null;
 }
 async function onCode(code){
@@ -860,6 +862,7 @@ async function onCode(code){
   lastCode = code; lastAt = Date.now();
   const p = findByCode(code);
   if(!p){ scanMsg(t("scanUnknown"), "err"); return; }
+  if(scanBusy) return;
   scanBusy = true;
   try{
     await window.KFB.inc({ [p.id]: 1 });
