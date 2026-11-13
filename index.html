@@ -75,12 +75,21 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .t-raclette{grid-column:1;grid-row:2;background:var(--cheese);border-color:transparent}
 .t-raclette span{color:#4A3A10;font-weight:600}
 .grid.has-raclette .t-manque{grid-row:1}
+.t-scan{grid-column:2;grid-row:2;background:var(--birch);color:var(--char);border-color:transparent}
+.t-scan span{color:#B9C4B4}
+.grid.has-scan .t-addition{grid-row:1}
+.scan-box{position:relative;border-radius:20px;overflow:hidden;background:#111;aspect-ratio:4/3;max-height:52vh;margin:0 auto}
+.scan-box video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.scan-frame{position:absolute;inset:20% 14%;border:4px solid var(--ember);border-radius:18px;box-shadow:0 0 0 2000px rgba(0,0,0,.28)}
+.scan-status{font-size:clamp(19px,2.2vw,24px);font-weight:600;text-align:center;margin:16px 0 4px;min-height:1.4em}
+.scan-status.ok{color:var(--ember-deep)}.scan-status.err{color:#A3322A}
 .t-addition{grid-column:2;grid-row:1 / span 2;background:var(--wine);color:#F6E3E7;border-color:transparent}
 .t-addition span{color:#E8C3CB}
 
 @media (orientation:portrait){
   .grid{grid-template-columns:1fr 1fr;grid-template-rows:none;grid-auto-rows:1fr}
   .t-manque,.t-raclette{grid-column:1 / span 2;grid-row:auto}
+  .t-scan{grid-column:auto!important;grid-row:auto!important}
   .t-addition{grid-column:auto;grid-row:auto}
   .grid.has-raclette .t-manque{grid-row:auto}
 }
@@ -218,6 +227,10 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
       <svg viewBox="0 0 48 48"><path d="M12 4h24v40l-4-3-4 3-4-3-4 3-4-3-4 3z"/><path d="M18 14h12M18 21h12M18 28h7"/></svg>
       <div><h2 data-t="additionT"></h2><span data-t="additionS"></span></div>
     </button>
+    <button class="tile t-scan" data-open="scan" id="tileScan" hidden>
+      <svg viewBox="0 0 48 48"><path d="M6 13V8a2 2 0 0 1 2-2h5M35 6h5a2 2 0 0 1 2 2v5M42 35v5a2 2 0 0 1-2 2h-5M13 42H8a2 2 0 0 1-2-2v-5"/><path d="M14 15v18M19 15v18M24 15v18M30 15v18M34 15v18"/></svg>
+      <div><h2 data-t="scanT"></h2><span data-t="scanS"></span></div>
+    </button>
     <button class="tile" data-open="aide">
       <svg viewBox="0 0 48 48"><path d="M24 6a12 12 0 0 1 12 12v8l4 8H8l4-8v-8A12 12 0 0 1 24 6z"/><path d="M19 38a5 5 0 0 0 10 0"/></svg>
       <div><h2 data-t="aideT"></h2><span data-t="aideS"></span></div>
@@ -261,6 +274,14 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
   <div class="sheet-foot">
     <div class="summary" id="manqueSummary"></div>
     <button class="btn" id="manqueSend" disabled data-t="send"></button>
+  </div>
+</section>
+
+<section class="sheet" id="sh-scan" role="dialog">
+  <div class="sheet-head"><h3 data-t="scanT"></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-body">
+    <div class="scan-box"><video id="scanVideo" playsinline muted></video><div class="scan-frame"></div></div>
+    <p class="scan-status" id="scanStatus"></p>
   </div>
 </section>
 
@@ -331,7 +352,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe</h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 5</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -354,6 +375,20 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <input id="cServer" placeholder="https://ntfy.sh">
     <button class="btn ghost" id="testSend" style="margin-top:12px;width:100%">Envoyer une notification de test</button>
 
+    <div class="cat" style="margin-top:28px">Liaison avec la caisse</div>
+    <p class="hint" id="linkStatus"></p>
+    <label class="f" for="cCaissePw">Mot de passe de la caisse</label>
+    <input id="cCaissePw" type="password" autocomplete="current-password">
+    <div class="row2" style="margin-top:12px">
+      <button class="btn ghost" id="linkBtn">Connecter à la caisse</button>
+      <button class="btn ghost" id="unlinkBtn">Déconnecter</button>
+    </div>
+    <label class="f" for="cCats">Catégories de la caisse proposées aux clients (séparées par des virgules)</label>
+    <input id="cCats" placeholder="Vins, Bières, Soft">
+    <label class="f" for="cExtras">Articles en plus, hors caisse (même format que « Articles »)</label>
+    <textarea id="cExtras" placeholder="Pour le grill : Charbon"></textarea>
+    <p class="hint">Une fois la caisse connectée, la carte des clients reprend ses produits et ses prix : le champ « Articles » plus bas ne sert plus.</p>
+
     <div class="cat" style="margin-top:28px">Raclette</div>
     <label class="f" for="cPotato">Délai pour les pommes de terre (minutes)</label>
     <input id="cPotato" type="number" min="1" inputmode="numeric">
@@ -362,7 +397,8 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <label class="f" for="cName">Nom affiché</label><input id="cName">
     <label class="f" for="cItems">Articles (une catégorie par ligne : « Catégorie : article – prix, article – prix »)</label>
     <textarea id="cItems" style="min-height:190px"></textarea>
-    <label class="f" for="cHelp">Appeler l’équipe : raisons en français (une par ligne)</label>
+    <div class="cat" style="margin-top:28px">Appeler l’équipe</div>
+    <label class="f" for="cHelp">Raisons en français (une par ligne)</label>
     <textarea id="cHelp" style="min-height:150px"></textarea>
     <label class="f" for="cHelpDe">Raisons en allemand (même ordre)</label>
     <textarea id="cHelpDe" style="min-height:150px"></textarea>
@@ -448,7 +484,12 @@ const T = {
     noInfo:"Aucune info pour le moment.",
     ack:"C’est noté, quelqu’un arrive !", ackPotato:"Vos pommes de terre sont en route !",
     errConfig:"Les notifications ne sont pas réglées. Venez nous voir directement.",
-    errSend:"Le message n’est pas parti. Vérifiez le Wi-Fi ou venez nous voir."
+    errSend:"Le message n’est pas parti. Vérifiez le Wi-Fi ou venez nous voir.",
+    scanT:"Scanner ma boisson", scanS:"Elle s’ajoute à votre note",
+    scanIntro:"Présentez le code-barres de votre bouteille devant la caméra.",
+    scanAdded:"{n} ajouté à votre note", scanUnknown:"Code non reconnu. Appelez l’équipe si besoin.",
+    scanNoCam:"La caméra n’est pas disponible. Autorisez-la ou appelez l’équipe.",
+    scanUnsupported:"Le scan n’est pas possible sur ce navigateur. Utilisez Chrome sur Android."
   },
   de: {
     welcome:"Willkommen im Verger des Louves", greet:"Schönen Abend, {g}", infosBtn:"WLAN & Infos",
@@ -490,7 +531,12 @@ const T = {
     noInfo:"Im Moment keine Infos.",
     ack:"Verstanden, jemand kommt!", ackPotato:"Ihre Kartoffeln sind unterwegs!",
     errConfig:"Benachrichtigungen sind nicht eingestellt. Bitte kommen Sie direkt zu uns.",
-    errSend:"Die Nachricht wurde nicht gesendet. Prüfen Sie das WLAN oder kommen Sie zu uns."
+    errSend:"Die Nachricht wurde nicht gesendet. Prüfen Sie das WLAN oder kommen Sie zu uns.",
+    scanT:"Getränk scannen", scanS:"Wird Ihrer Rechnung hinzugefügt",
+    scanIntro:"Halten Sie den Strichcode Ihrer Flasche vor die Kamera.",
+    scanAdded:"{n} wurde Ihrer Rechnung hinzugefügt", scanUnknown:"Code nicht erkannt. Rufen Sie bei Bedarf das Team.",
+    scanNoCam:"Die Kamera ist nicht verfügbar. Bitte erlauben Sie den Zugriff oder rufen Sie das Team.",
+    scanUnsupported:"Scannen ist mit diesem Browser nicht möglich."
   },
   en: {
     welcome:"Welcome to Verger des Louves", greet:"Enjoy your evening, {g}", infosBtn:"Wi-Fi & info",
@@ -532,10 +578,16 @@ const T = {
     noInfo:"No info for now.",
     ack:"Got it, someone is on the way!", ackPotato:"Your potatoes are on their way!",
     errConfig:"Notifications aren’t set up. Please come and see us.",
-    errSend:"The message wasn’t sent. Check the Wi-Fi or come and see us."
+    errSend:"The message wasn’t sent. Check the Wi-Fi or come and see us.",
+    scanT:"Scan my drink", scanS:"Added to your tab",
+    scanIntro:"Hold your bottle’s barcode in front of the camera.",
+    scanAdded:"{n} added to your tab", scanUnknown:"Code not recognised. Call the team if needed.",
+    scanNoCam:"The camera isn’t available. Allow access or call the team.",
+    scanUnsupported:"Scanning isn’t possible in this browser."
   }
 };
 const CAT_T = {
+  "Bières":{de:"Biere",en:"Beers"}, "Soft":{de:"Alkoholfrei",en:"Soft drinks"}, "Liqueurs":{de:"Liköre",en:"Liqueurs"},
   "Pour le grill":{de:"Für den Grill",en:"For the grill"}, "Vins":{de:"Weine",en:"Wines"},
   "Bulles":{de:"Schaumweine",en:"Sparkling wines"}, "Bières à 3,50 €":{de:"Biere zu 3,50 €",en:"Beers at €3.50"},
   "Autres bières":{de:"Weitere Biere",en:"Other beers"}, "Sans alcool":{de:"Alkoholfrei",en:"Soft drinks"}
@@ -556,6 +608,7 @@ const DEF = {
   spotify:"https://open.spotify.com/playlist/4ilB75B3PLwN8GVFsll31Z", review:"",
   book:"https://www.vergerdeslouves.fr", gift:"", insta:"", taxis:"",
   wifi:"", wifiPass:"", end:"", potato:15,
+  caisseCats:"Vins, Bières, Soft", extras:"Pour le grill : Charbon",
   help:"Le feu ne prend pas\nIl y a trop de fumée\nUn souci de lumière ou de chauffage\nUne question\nAutre chose",
   helpDe:"Das Feuer brennt nicht an\nEs ist zu viel Rauch\nProblem mit Licht oder Heizung\nEine Frage\nEtwas anderes",
   helpEn:"The fire won’t light\nThere’s too much smoke\nA problem with lights or heating\nA question\nSomething else",
@@ -615,7 +668,7 @@ function openSheet(name){
   if(builders[name]) builders[name]();
   el.classList.add("on"); $("scrim").classList.add("on"); current = el;
 }
-function closeSheet(){ if(current){ current.classList.remove("on"); current = null; } $("scrim").classList.remove("on"); }
+function closeSheet(){ stopScan(); if(current){ current.classList.remove("on"); current = null; } $("scrim").classList.remove("on"); }
 document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openSheet(b.dataset.open)));
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeSheet));
 $("scrim").addEventListener("click", closeSheet);
@@ -681,44 +734,61 @@ const GLYPHS = {
   biere:'<path d="M10 14h22v26a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4z"/><path d="M32 19h4a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-4"/><path d="M10 14c0-4 3-6 6-6 1-3 4-4 7-3 3-2 8-1 9 3 2 1 2 4 0 6"/><path d="M17 22v15M25 22v15"/>',
   eau:'<path d="M24 4C18 13 12 20 12 28a12 12 0 0 0 24 0c0-8-6-15-12-24z"/><path d="M18 30a6 6 0 0 0 6 6"/>'
 };
-function styleFor(cat){
-  const c = (cat || "").toLowerCase();
+function styleFor(cat, name){
+  const c = (cat || "").toLowerCase(), n = (name || "").toLowerCase();
   if(/grill|feu|charbon/.test(c)) return { g:"feu", bg:"#2E3A2A", fg:"#F0A04B" };
-  if(/bulle|cr[ée]mant|champ/.test(c)) return { g:"bulles", bg:"#C9A64A", fg:"#FFF8E6" };
+  if(/bulle|cr[ée]mant|champ/.test(c) || /cr[ée]mant|champagne|prosecco/.test(n)) return { g:"bulles", bg:"#C9A64A", fg:"#FFF8E6" };
   if(/bi[èe]re/.test(c)) return { g:"biere", bg:"#D88F2E", fg:"#FFF6E8" };
   if(/sans|eau|soft/.test(c)) return { g:"eau", bg:"#4E8A8C", fg:"#EAF6F6" };
   return { g:"vin", bg:"#7A2638", fg:"#F6E3E7" };
 }
-function parseItems(){
-  return (cfg.items || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
-    const i = l.indexOf(":");
-    const cat = i > -1 ? l.slice(0, i).trim() : "";
-    const list = (i > -1 ? l.slice(i + 1) : l).split(/;|,(?!\d)/).map(s => s.trim()).filter(Boolean);
-    return { cat, list };
-  });
-}
+const fmtEur = n => Number(n).toLocaleString("fr-FR", {style:"currency", currency:"EUR"});
 function splitPrice(it){
   const m = it.match(/^(.*?)\s+[–-]\s+([\d.,]+\s*€)$/);
   return m ? { name:m[1], price:m[2] } : { name:it, price:"" };
 }
+function parseText(txt){
+  return (txt || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf(":");
+    const cat = i > -1 ? l.slice(0, i).trim() : "";
+    const list = (i > -1 ? l.slice(i + 1) : l).split(/;|,(?!\d)/).map(x => x.trim()).filter(Boolean)
+      .map(raw => { const sp = splitPrice(raw); return { key:"t:" + raw, name:sp.name, price:sp.price, pid:null }; });
+    return { cat, list };
+  });
+}
+let caisseProducts = null;
+const linked = () => !!(window.KFB && window.KFB.user && Array.isArray(caisseProducts));
+function getGroups(){
+  if(!linked()) return parseText(cfg.items);
+  const groups = parseText(cfg.extras);
+  const cats = (cfg.caisseCats || "").split(",").map(x => x.trim()).filter(Boolean);
+  const wanted = cats.length ? cats : [...new Set(caisseProducts.map(p => String(p.cat || "")))];
+  wanted.forEach(cn => {
+    const list = caisseProducts.filter(p => String(p.cat || "").toLowerCase() === cn.toLowerCase())
+      .map(p => ({ key:"p:" + p.id, name:p.name, price:fmtEur(p.price), pid:p.id }));
+    if(list.length) groups.push({ cat:cn, list });
+  });
+  return groups;
+}
+let ITEMS = {};
 function renderItems(){
-  $("itemsList").innerHTML = parseItems().map(g => {
-    const st = styleFor(g.cat);
-    return `${g.cat ? `<div class="cat">${esc(trCat(g.cat))}</div>` : ""}
+  ITEMS = {};
+  $("itemsList").innerHTML = getGroups().map(g => `${g.cat ? `<div class="cat">${esc(trCat(g.cat))}</div>` : ""}
     <div class="apps">${g.list.map(it => {
-      const q = basket[it] || 0, sp = splitPrice(it);
-      return `<button class="item ${q ? "sel" : ""}" data-item="${esc(it)}">
+      ITEMS[it.key] = it;
+      const st = styleFor(g.cat, it.name), q = basket[it.key] || 0;
+      return `<button class="item ${q ? "sel" : ""}" data-item="${esc(it.key)}">
         <span class="app-icon" style="background:${st.bg};color:${st.fg}">
           <svg viewBox="0 0 48 48" aria-hidden="true">${GLYPHS[st.g]}</svg>
-          ${q ? `<span class="badge">${q}</span><span class="app-minus" data-minus="${esc(it)}" aria-label="−1">−</span>` : ""}
+          ${q ? `<span class="badge">${q}</span><span class="app-minus" data-minus="${esc(it.key)}" aria-label="−1">−</span>` : ""}
         </span>
-        <span class="app-name">${esc(trItem(sp.name))}</span>
-        ${sp.price ? `<span class="app-price">${esc(sp.price)}</span>` : ""}
+        <span class="app-name">${esc(trItem(it.name))}</span>
+        ${it.price ? `<span class="app-price">${esc(it.price)}</span>` : ""}
       </button>`;
-    }).join("")}</div>`;
-  }).join("");
+    }).join("")}</div>`).join("");
+  Object.keys(basket).forEach(k => { if(!ITEMS[k]) delete basket[k]; });
   const n = Object.values(basket).reduce((a, b) => a + b, 0);
-  $("manqueSummary").textContent = n ? Object.entries(basket).map(([k, v]) => `${v} × ${trItem(splitPrice(k).name)}`).join(", ") : t("summaryEmpty");
+  $("manqueSummary").textContent = n ? Object.entries(basket).map(([k, v]) => `${v} × ${trItem(ITEMS[k].name)}`).join(", ") : t("summaryEmpty");
   $("manqueSend").disabled = !n && !$("manqueNote").value.trim();
 }
 $("itemsList").addEventListener("click", e => {
@@ -729,13 +799,96 @@ $("itemsList").addEventListener("click", e => {
 });
 $("manqueNote").addEventListener("input", renderItems);
 $("manqueSend").addEventListener("click", async () => {
-  const lines = Object.entries(basket).map(([k, v]) => `• ${v} × ${k}`);
+  const entries = Object.entries(basket).map(([k, q]) => ({ it:ITEMS[k], q })).filter(e => e.it);
+  const lines = entries.map(e => `• ${e.q} × ${e.it.name}${e.it.price ? ` (${e.it.price})` : ""}`);
   const note = $("manqueNote").value.trim();
   if(note) lines.push(`• ${note}`);
   $("manqueSend").disabled = true;
+  const toTicket = {};
+  entries.forEach(e => { if(e.it.pid != null) toTicket[e.it.pid] = (toTicket[e.it.pid] || 0) + e.q; });
+  if(linked() && Object.keys(toTicket).length){
+    try{ await window.KFB.inc(toTicket); lines.push("", "✓ Déjà ajouté au ticket du kota dans la caisse"); }
+    catch(e){ lines.push("", "⚠ Non ajouté à la caisse, à saisir à la main"); }
+  }
   if(await notify("Il manque…", lines.join("\n"), { tags:["fire"] })){
     basket = {}; $("manqueNote").value = ""; closeSheet(); toast(t("sentManque"));
   } else renderItems();
+});
+
+/* ---------- Scanner une boisson ---------- */
+let scanStream = null, scanTimer = null, detector = null, lastCode = "", lastAt = 0, scanBusy = false;
+function findByCode(code){
+  if(!caisseProducts) return null;
+  code = String(code || "").trim();
+  const m = code.match(/^VDL:(.+)$/i);
+  if(m) return caisseProducts.find(p => String(p.id) === m[1].trim()) || null;
+  const d = code.replace(/\D/g, "");
+  if(!d) return null;
+  return caisseProducts.find(p => p.ean && String(p.ean).replace(/\D/g, "") === d) || null;
+}
+function scanMsg(txt, cls){ const el = $("scanStatus"); el.textContent = txt; el.className = "scan-status" + (cls ? " " + cls : ""); }
+async function startScan(){
+  scanMsg(t("scanIntro"));
+  if(!("BarcodeDetector" in window)){ scanMsg(t("scanUnsupported"), "err"); return; }
+  try{ detector = detector || new BarcodeDetector({ formats:["ean_13","ean_8","upc_a","upc_e","code_128","qr_code"] }); }
+  catch(e){ scanMsg(t("scanUnsupported"), "err"); return; }
+  try{ scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:1280 } }, audio:false }); }
+  catch(e){ scanMsg(t("scanNoCam"), "err"); return; }
+  if(!current || current.id !== "sh-scan"){ stopScan(); return; }
+  const v = $("scanVideo"); v.srcObject = scanStream; await v.play().catch(() => {});
+  scanTimer = setInterval(async () => {
+    if(!v.videoWidth || scanBusy) return;
+    try{ const codes = await detector.detect(v); if(codes.length) onCode(codes[0].rawValue); }catch(e){}
+  }, 300);
+}
+function stopScan(){
+  clearInterval(scanTimer); scanTimer = null;
+  if(scanStream){ scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
+  const v = $("scanVideo"); if(v) v.srcObject = null;
+}
+async function onCode(code){
+  if(code === lastCode && Date.now() - lastAt < 4000) return;
+  lastCode = code; lastAt = Date.now();
+  const p = findByCode(code);
+  if(!p){ scanMsg(t("scanUnknown"), "err"); return; }
+  scanBusy = true;
+  try{
+    await window.KFB.inc({ [p.id]: 1 });
+    scanMsg("✓ " + t("scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }), "ok");
+    if(navigator.vibrate) navigator.vibrate(80);
+  }catch(e){ scanMsg(t("errSend"), "err"); }
+  scanBusy = false;
+}
+
+/* ---------- Liaison avec la caisse ---------- */
+function updateScanTile(){
+  const on = linked();
+  $("tileScan").hidden = !on; $("grid").classList.toggle("has-scan", on);
+}
+function updateLinkStatus(){
+  const el = $("linkStatus"); if(!el) return;
+  if(window.KFB_FAIL) el.textContent = "Connexion à la caisse impossible pour le moment (pas d’internet ?).";
+  else if(!window.KFB) el.textContent = "Chargement…";
+  else if(window.KFB.user) el.textContent = caisseProducts ? `✓ Connectée à la caisse : ${caisseProducts.length} produits.` : "Connectée, chargement des produits…";
+  else el.textContent = "Non connectée : la carte vient du champ « Articles ».";
+}
+window.addEventListener("kfb-auth", () => {
+  if(!window.KFB || !window.KFB.user) caisseProducts = null;
+  updateLinkStatus(); updateScanTile();
+});
+window.addEventListener("kfb-products", e => {
+  caisseProducts = Array.isArray(e.detail) ? e.detail : null;
+  updateLinkStatus(); updateScanTile();
+  if(current && current.id === "sh-manque") renderItems();
+});
+$("linkBtn").addEventListener("click", async () => {
+  if(!window.KFB){ toast("La connexion à la caisse n’est pas encore prête, réessayez.", true); return; }
+  try{ await window.KFB.signIn($("cCaissePw").value); $("cCaissePw").value = ""; toast("Caisse connectée."); }
+  catch(e){ toast("Mot de passe incorrect ou connexion impossible.", true); }
+});
+$("unlinkBtn").addEventListener("click", async () => {
+  if(window.KFB && window.KFB.user){ try{ await window.KFB.signOut(); }catch(e){} }
+  caisseProducts = null; updateLinkStatus(); updateScanTile(); toast("Caisse déconnectée.");
 });
 
 /* ---------- Raclette : pommes de terre ---------- */
@@ -919,6 +1072,7 @@ $("sRaclette").addEventListener("click", () => { racletteToggle = !racletteToggl
 function fillAdmin(){
   $("sGroup").value = session?.group || ""; $("sWelcome").value = session?.welcome || ""; $("sPeople").value = session?.people || "";
   racletteToggle = !!session?.raclette; $("sRaclette").classList.toggle("sel", racletteToggle);
+  $("cCats").value = cfg.caisseCats; $("cExtras").value = cfg.extras; updateLinkStatus();
   $("cTopic").value = cfg.topic; $("cServer").value = cfg.server; $("cName").value = cfg.name; $("cPotato").value = cfg.potato;
   $("cItems").value = cfg.items; $("cHelp").value = cfg.help; $("cHelpDe").value = cfg.helpDe; $("cHelpEn").value = cfg.helpEn; $("cSpotify").value = cfg.spotify; $("cReview").value = cfg.review;
   $("cBook").value = cfg.book; $("cGift").value = cfg.gift; $("cPhoto").value = cfg.photo || ""; $("cInsta").value = cfg.insta;
@@ -931,12 +1085,13 @@ $("cfgSave").addEventListener("click", () => {
   cfg = Object.assign(cfg, {
     name:$("cName").value.trim() || "Le kota", ...normNtfy($("cTopic").value, $("cServer").value),
     pin:p, potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
+    caisseCats:$("cCats").value, extras:$("cExtras").value,
     items:$("cItems").value, help:$("cHelp").value, helpDe:$("cHelpDe").value, helpEn:$("cHelpEn").value, spotify:$("cSpotify").value.trim(), review:$("cReview").value.trim(),
     book:$("cBook").value.trim(), gift:$("cGift").value.trim(), photo:$("cPhoto").value.trim(), insta:$("cInsta").value.trim(),
     wifi:$("cWifi").value.trim(), wifiPass:$("cWifiPass").value, end:$("cEnd").value.trim(),
     infos:$("cInfos").value, infosDe:$("cInfosDe").value, infosEn:$("cInfosEn").value
   });
-  store("kota_cfg", cfg); listenAcks(); applyLang(); closeSheet(); toast("Réglages enregistrés.");
+  store("kota_cfg", cfg); listenAcks(); applyLang(); updateScanTile(); closeSheet(); toast("Réglages enregistrés.");
 });
 $("testSend").addEventListener("click", async () => {
   Object.assign(cfg, normNtfy($("cTopic").value, $("cServer").value));
@@ -956,7 +1111,7 @@ $("sessionEnd").addEventListener("click", () => {
 });
 
 const builders = {
-  manque: renderItems, raclette: updateRaclette, aide: renderHelp, musique: renderMusic, avis: renderReview,
+  manque: renderItems, scan: startScan, raclette: updateRaclette, aide: renderHelp, musique: renderMusic, avis: renderReview,
   revenir: renderLinks, infos: renderInfos, pin: renderPin, admin: fillAdmin,
   addition: () => { pay = null; split = false; $("splitToggle").classList.remove("sel");
     document.querySelectorAll("#payOpts .opt").forEach(x => x.classList.remove("sel")); }
@@ -975,6 +1130,32 @@ setInterval(() => { updateRaclette(); checkEnd(); }, 1000);
 applyLang();
 listenAcks();
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js", { updateViaCache:"none" }).then(r => r.update()).catch(() => {}); }
+</script>
+<script type="module">
+const EMAIL = "caisse@vergerdeslouves.fr";
+try{
+  const B = "https://www.gstatic.com/firebasejs/10.14.1/";
+  const { initializeApp } = await import(B + "firebase-app.js");
+  const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } = await import(B + "firebase-auth.js");
+  const F = await import(B + "firebase-firestore.js");
+  const app = initializeApp({ apiKey:"AIzaSyA4gZNKa_-v8cq9KouitpoFLwyNbtWwCl4", authDomain:"verger-caisse.firebaseapp.com", projectId:"verger-caisse", storageBucket:"verger-caisse.firebasestorage.app", messagingSenderId:"682849701036", appId:"1:682849701036:web:2be81c70af8547e3976309" });
+  const auth = getAuth(app), db = F.getFirestore(app);
+  let unsub = null;
+  window.KFB = {
+    user: null,
+    signIn: pw => signInWithEmailAndPassword(auth, EMAIL, pw),
+    signOut: () => signOut(auth),
+    inc: lines => F.setDoc(F.doc(db, "kota", "ticket"), { lines: Object.fromEntries(Object.entries(lines).map(([k, v]) => [String(k), F.increment(v)])), t: Date.now() }, { merge: true })
+  };
+  onAuthStateChanged(auth, u => {
+    window.KFB.user = u;
+    if(unsub){ unsub(); unsub = null; }
+    if(u) unsub = F.onSnapshot(F.doc(db, "config", "products"),
+      s => window.dispatchEvent(new CustomEvent("kfb-products", { detail: (s.exists() && s.data().list) || null })),
+      () => window.dispatchEvent(new CustomEvent("kfb-products", { detail: null })));
+    window.dispatchEvent(new Event("kfb-auth"));
+  });
+}catch(e){ window.KFB_FAIL = true; window.dispatchEvent(new Event("kfb-auth")); }
 </script>
 </body>
 </html>
