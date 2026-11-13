@@ -133,6 +133,9 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 .btn.ghost{background:var(--char-3);color:var(--birch)}
 .btn.wine{background:var(--wine);color:#F6E3E7}
 .btn.cheese{background:var(--cheese);color:var(--birch)}
+.t-fondue,.t-montdor{background:var(--cheese);border-color:transparent}
+.t-fondue span,.t-montdor span{color:#4A3A10;font-weight:600}
+.tile.asked{opacity:.55;pointer-events:none}
 .summary{flex:1;color:var(--birch-dim);font-size:16px}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .opt{padding:20px;border-radius:18px;background:var(--char-3);text-align:left;font-weight:600;border:1.5px solid transparent;min-height:72px}
@@ -231,6 +234,14 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <button class="tile t-scan" data-open="scan" id="tileScan" hidden>
       <svg viewBox="0 0 48 48"><path d="M6 13V8a2 2 0 0 1 2-2h5M35 6h5a2 2 0 0 1 2 2v5M42 35v5a2 2 0 0 1-2 2h-5M13 42H8a2 2 0 0 1-2-2v-5"/><path d="M14 15v18M19 15v18M24 15v18M30 15v18M34 15v18"/></svg>
       <div><h2 data-t="scanT"></h2><span data-t="scanS"></span></div>
+    </button>
+    <button class="tile t-fondue" id="tileFondue" hidden>
+      <svg viewBox="0 0 48 48"><path d="M10 26a14 14 0 0 1 28 0z"/><path d="M6 26h36"/><path d="M8 31c2 8 8 11 16 11s14-3 16-11"/><path d="M24 12V7"/></svg>
+      <div><h2 data-t="fondueT"></h2><span id="fondueSub"></span></div>
+    </button>
+    <button class="tile t-montdor" id="tileMontdor" hidden>
+      <svg viewBox="0 0 48 48"><rect x="7" y="18" width="34" height="20" rx="3"/><path d="M7 26h34"/><circle cx="24" cy="22" r="1.4"/></svg>
+      <div><h2 data-t="montdorT"></h2><span id="montdorSub"></span></div>
     </button>
     <button class="tile" data-open="aide">
       <svg viewBox="0 0 48 48"><path d="M24 6a12 12 0 0 1 12 12v8l4 8H8l4-8v-8A12 12 0 0 1 24 6z"/><path d="M19 38a5 5 0 0 0 10 0"/></svg>
@@ -353,7 +364,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 8</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 9</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -363,6 +374,8 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <label class="f" for="sWelcome">Message de bienvenue (facultatif)</label>
     <input id="sWelcome" placeholder="Joyeux anniversaire Julie !">
     <button class="toggle" id="sRaclette"><i>✓</i><span>Formule raclette (affiche le bouton « Pommes de terre »)</span></button>
+    <button class="toggle" id="sFondue"><i>✓</i><span>Formule fondue (affiche le bouton « Caquelon »)</span></button>
+    <button class="toggle" id="sMontdor"><i>✓</i><span>Mont d’Or (affiche le bouton « Mont d’Or »)</span></button>
     <div class="row2" style="margin-top:12px">
       <button class="btn" id="sessionStart">Ouvrir la soirée</button>
       <button class="btn ghost" id="sessionEnd">Clôturer la soirée</button>
@@ -449,6 +462,9 @@ const T = {
     welcome:"Bienvenue au Verger des Louves", greet:"Bonne soirée, {g}", infosBtn:"Wi-Fi et infos",
     manqueT:"Il nous manque quelque chose", manqueS:"Du charbon, une bouteille, une bière…", manqueH:"Il nous manque…",
     racletteT:"Pommes de terre", racletteS:"Pour la raclette, prêtes en {n} min",
+    fondueT:"Caquelon à fondue", fondueS:"On vous l’apporte",
+    montdorT:"Mont d’Or", montdorS:"On vous l’apporte",
+    askedS:"Demande envoyée, ça arrive", askedSent:"C’est noté, on vous apporte ça.",
     additionT:"L’addition", additionS:"On vous l’apporte",
     aideT:"Appeler l’équipe", aideS:"Le feu, la lumière, une question",
     musiqueT:"Musique", musiqueS:"Notre playlist Spotify",
@@ -496,6 +512,9 @@ const T = {
     welcome:"Willkommen im Verger des Louves", greet:"Schönen Abend, {g}", infosBtn:"WLAN & Infos",
     manqueT:"Uns fehlt etwas", manqueS:"Holzkohle, eine Flasche, ein Bier…", manqueH:"Uns fehlt…",
     racletteT:"Kartoffeln", racletteS:"Für das Raclette, fertig in {n} Min.",
+    fondueT:"Fondue-Caquelon", fondueS:"Wir bringen ihn Ihnen",
+    montdorT:"Mont d’Or", montdorS:"Wir bringen ihn Ihnen",
+    askedS:"Angefragt, kommt gleich", askedSent:"Notiert, wir bringen es Ihnen.",
     additionT:"Die Rechnung", additionS:"Wir bringen sie Ihnen",
     aideT:"Team rufen", aideS:"Feuer, Licht, eine Frage",
     musiqueT:"Musik", musiqueS:"Unsere Spotify-Playlist",
@@ -543,6 +562,9 @@ const T = {
     welcome:"Welcome to Verger des Louves", greet:"Enjoy your evening, {g}", infosBtn:"Wi-Fi & info",
     manqueT:"We need something", manqueS:"Charcoal, a bottle, a beer…", manqueH:"We need…",
     racletteT:"Potatoes", racletteS:"For the raclette, ready in {n} min",
+    fondueT:"Fondue pot", fondueS:"We’ll bring it to you",
+    montdorT:"Mont d’Or", montdorS:"We’ll bring it to you",
+    askedS:"Request sent, on its way", askedSent:"Got it, we’ll bring it over.",
     additionT:"The bill", additionS:"We’ll bring it to you",
     aideT:"Call the team", aideS:"Fire, lights, a question",
     musiqueT:"Music", musiqueS:"Our Spotify playlist",
@@ -905,7 +927,26 @@ $("unlinkBtn").addEventListener("click", async () => {
 
 /* ---------- Raclette : pommes de terre ---------- */
 function fmtLeft(ms){ const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+function updateOneShot(key, tileId, subId){
+  const on = !!(session && session[key]);
+  const tile = $(tileId);
+  tile.hidden = !on;
+  if(!on) return;
+  const asked = !!(session && session[key + "Asked"]);
+  $(subId).textContent = asked ? t("askedS") : t(key === "fondue" ? "fondueS" : "montdorS");
+  tile.classList.toggle("asked", asked);
+}
+async function askOneShot(key, title){
+  if(!session || session[key + "Asked"]) return;
+  session[key + "Asked"] = true; saveSession(); updateOneShot(key, key === "fondue" ? "tileFondue" : "tileMontdor", key === "fondue" ? "fondueSub" : "montdorSub");
+  if(await notify(title, "À apporter dès que possible.", { priority:4, tags:[key] })){ toast(t("askedSent")); }
+  else { session[key + "Asked"] = false; saveSession(); updateOneShot(key, key === "fondue" ? "tileFondue" : "tileMontdor", key === "fondue" ? "fondueSub" : "montdorSub"); }
+}
+$("tileFondue").addEventListener("click", () => askOneShot("fondue", "Caquelon à fondue"));
+$("tileMontdor").addEventListener("click", () => askOneShot("montdor", "Mont d’Or"));
 function updateRaclette(){
+  updateOneShot("fondue", "tileFondue", "fondueSub");
+  updateOneShot("montdor", "tileMontdor", "montdorSub");
   const on = !!(session && session.raclette);
   $("tileRaclette").hidden = !on; $("grid").classList.toggle("has-raclette", on);
   if(!on) return;
@@ -1079,11 +1120,15 @@ function normNtfy(topic, server){
   s = s ? "https://" + s.replace(/^https?:\/\//, "").split("/")[0] : "https://ntfy.sh";
   return { topic: tp, server: s };
 }
-let racletteToggle = false;
+let racletteToggle = false, fondueToggle = false, montdorToggle = false;
 $("sRaclette").addEventListener("click", () => { racletteToggle = !racletteToggle; $("sRaclette").classList.toggle("sel", racletteToggle); });
+$("sFondue").addEventListener("click", () => { fondueToggle = !fondueToggle; $("sFondue").classList.toggle("sel", fondueToggle); });
+$("sMontdor").addEventListener("click", () => { montdorToggle = !montdorToggle; $("sMontdor").classList.toggle("sel", montdorToggle); });
 function fillAdmin(){
   $("sGroup").value = session?.group || ""; $("sWelcome").value = session?.welcome || ""; $("sPeople").value = session?.people || "";
   racletteToggle = !!session?.raclette; $("sRaclette").classList.toggle("sel", racletteToggle);
+  fondueToggle = !!session?.fondue; $("sFondue").classList.toggle("sel", fondueToggle);
+  montdorToggle = !!session?.montdor; $("sMontdor").classList.toggle("sel", montdorToggle);
   $("cCats").value = cfg.caisseCats; $("cExtras").value = cfg.extras; updateLinkStatus();
   $("cTopic").value = cfg.topic; $("cServer").value = cfg.server; $("cName").value = cfg.name; $("cPotato").value = cfg.potato;
   $("cItems").value = cfg.items; $("cHelp").value = cfg.help; $("cHelpDe").value = cfg.helpDe; $("cHelpEn").value = cfg.helpEn; $("cSpotify").value = cfg.spotify; $("cReview").value = cfg.review;
@@ -1112,7 +1157,9 @@ $("testSend").addEventListener("click", async () => {
     toast("Notification de test envoyée.");
 });
 $("sessionStart").addEventListener("click", () => {
-  session = { group:$("sGroup").value.trim(), people:$("sPeople").value.trim(), welcome:$("sWelcome").value.trim(), raclette:racletteToggle, start:Date.now(), warned:false, potatoUntil:0 };
+  session = { group:$("sGroup").value.trim(), people:$("sPeople").value.trim(), welcome:$("sWelcome").value.trim(),
+    raclette:racletteToggle, fondue:fondueToggle, montdor:montdorToggle,
+    start:Date.now(), warned:false, potatoUntil:0, fondueAsked:false, montdorAsked:false };
   saveSession(); basket = {}; lastBill = 0; lang = "fr"; closeSheet(); applyLang();
   toast("Soirée ouverte. Bonne soirée à eux !");
 });
