@@ -866,9 +866,10 @@ function findByCode(code){
   code = String(code || "").trim();
   const m = code.match(/^VDL:(.+)$/i);
   if(m) return caisseProducts.find(p => String(p.id) === m[1].trim()) || null;
-  const d = code.replace(/\D/g, "");
+  const nz = c => String(c || "").replace(/\D/g, "").replace(/^0+/, "");
+  const d = nz(code);
   if(!d) return null;
-  return caisseProducts.find(p => p.ean && String(p.ean).replace(/\D/g, "") === d) || null;
+  return caisseProducts.find(p => nz(p.barcode) === d || nz(p.ean) === d) || null;
 }
 function scanMsg(txt, cls){ const el = $("scanStatus"); el.textContent = txt; el.className = "scan-status" + (cls ? " " + cls : ""); }
 async function openCamera(){
