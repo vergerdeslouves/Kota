@@ -365,9 +365,11 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 16</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 17</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
+    <button class="btn ghost" id="sLoadResa" style="width:100%;margin-bottom:6px">📅 Remplir avec la réservation du jour</button>
+    <p id="sResaInfo" style="margin:0 0 10px;font-size:15px;color:var(--birch-dim)"></p>
     <div class="row2">
       <div><label class="f" for="sGroup">Nom du groupe</label><input id="sGroup" placeholder="Famille Martin"></div>
       <div><label class="f" for="sPeople">Personnes</label><input id="sPeople" type="number" min="1" placeholder="8"></div>
@@ -446,6 +448,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <textarea id="cInfosEn" style="min-height:180px"></textarea>
 
     <label class="f" for="cPin">Code d’accès équipe (4 chiffres)</label><input id="cPin" inputmode="numeric" maxlength="4">
+    <label class="f" for="cResaKey">Clé des réservations du site (WordPress → Kota → Réglages, « Tablette / caisse »)</label><input id="cResaKey" type="password" autocomplete="off">
   </div>
   <div class="sheet-foot"><button class="btn" id="cfgSave">Enregistrer les réglages</button></div>
 </section>
@@ -1182,6 +1185,22 @@ let racletteToggle = false, fondueToggle = false, montdorToggle = false;
 $("sRaclette").addEventListener("click", () => { racletteToggle = !racletteToggle; $("sRaclette").classList.toggle("sel", racletteToggle); });
 $("sFondue").addEventListener("click", () => { fondueToggle = !fondueToggle; $("sFondue").classList.toggle("sel", fondueToggle); });
 $("sMontdor").addEventListener("click", () => { montdorToggle = !montdorToggle; $("sMontdor").classList.toggle("sel", montdorToggle); });
+$("sLoadResa").addEventListener("click", async () => {
+  const info = $("sResaInfo");
+  if(!cfg.resaKey){ info.textContent = "Saisis d’abord la clé des réservations dans les réglages, plus bas."; return; }
+  info.textContent = "Chargement…";
+  try{
+    const r = await fetch("https://vergerdeslouves.fr/wp-json/kota/v1/jour?cle=" + encodeURIComponent(cfg.resaKey) + "&t=" + Date.now());
+    const j = await r.json(); if(!r.ok) throw new Error(j.message || r.status);
+    const x = j.reservation;
+    if(!x){ info.textContent = "Aucune réservation du Kota aujourd’hui."; return; }
+    const f = String(x.formule || "").toLowerCase();
+    $("sGroup").value = x.nom; $("sPeople").value = (+x.adultes || 0) + (+x.enfants || 0);
+    racletteToggle = f.includes("raclette"); fondueToggle = f.includes("fondue"); montdorToggle = f.includes("mont");
+    $("sRaclette").classList.toggle("sel", racletteToggle); $("sFondue").classList.toggle("sel", fondueToggle); $("sMontdor").classList.toggle("sel", montdorToggle);
+    info.textContent = x.horaire + " · " + x.adultes + " adulte(s)" + (+x.enfants ? " + " + x.enfants + " enfant(s)" : "") + " · " + x.formule + (x.allergies ? " · ⚠ Allergies : " + x.allergies : "") + " — vérifie puis « Ouvrir la soirée ».";
+  }catch(e){ info.textContent = "Impossible de lire la réservation (" + e.message + ")."; }
+});
 function fillAdmin(){
   $("sGroup").value = session?.group || ""; $("sWelcome").value = session?.welcome || ""; $("sPeople").value = session?.people || "";
   racletteToggle = !!session?.raclette; $("sRaclette").classList.toggle("sel", racletteToggle);
@@ -1193,14 +1212,14 @@ function fillAdmin(){
   $("cItems").value = cfg.items; $("cHelp").value = cfg.help; $("cHelpDe").value = cfg.helpDe; $("cHelpEn").value = cfg.helpEn; $("cSpotify").value = cfg.spotify; $("cReview").value = cfg.review;
   $("cBook").value = cfg.book; $("cGift").value = cfg.gift; $("cPhoto").value = cfg.photo || ""; $("cInsta").value = cfg.insta;
   $("cWifi").value = cfg.wifi; $("cWifiPass").value = cfg.wifiPass; $("cEnd").value = cfg.end;
-  $("cInfos").value = cfg.infos; $("cInfosDe").value = cfg.infosDe; $("cInfosEn").value = cfg.infosEn; $("cPin").value = cfg.pin;
+  $("cInfos").value = cfg.infos; $("cInfosDe").value = cfg.infosDe; $("cInfosEn").value = cfg.infosEn; $("cPin").value = cfg.pin; $("cResaKey").value = cfg.resaKey || "";
 }
 $("cfgSave").addEventListener("click", () => {
   const p = $("cPin").value.trim();
   if(!/^\d{4}$/.test(p)){ toast("Le code doit faire 4 chiffres.", true); return; }
   cfg = Object.assign(cfg, {
     name:$("cName").value.trim() || "Le kota", ...normNtfy($("cTopic").value, $("cServer").value),
-    pin:p, potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
+    pin:p, resaKey:$("cResaKey").value.trim(), potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
     fondueDelay: Math.max(1, parseInt($("cFondueDelay").value, 10) || 15), montdorDelay: Math.max(1, parseInt($("cMontdorDelay").value, 10) || 15),
     caisseCats:$("cCats").value, extras:$("cExtras").value,
     items:$("cItems").value, help:$("cHelp").value, helpDe:$("cHelpDe").value, helpEn:$("cHelpEn").value, spotify:$("cSpotify").value.trim(), review:$("cReview").value.trim(),
