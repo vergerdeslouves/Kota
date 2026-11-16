@@ -365,11 +365,9 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 18</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 16</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
-    <button class="btn ghost" id="sLoadResa" style="width:100%;margin-bottom:6px">📅 Remplir avec la réservation du jour</button>
-    <p id="sResaInfo" style="margin:0 0 10px;font-size:15px;color:var(--birch-dim)"></p>
     <div class="row2">
       <div><label class="f" for="sGroup">Nom du groupe</label><input id="sGroup" placeholder="Famille Martin"></div>
       <div><label class="f" for="sPeople">Personnes</label><input id="sPeople" type="number" min="1" placeholder="8"></div>
@@ -448,7 +446,6 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
     <textarea id="cInfosEn" style="min-height:180px"></textarea>
 
     <label class="f" for="cPin">Code d’accès équipe (4 chiffres)</label><input id="cPin" inputmode="numeric" maxlength="4">
-    <label class="f" for="cResaKey">Clé des réservations du site (WordPress → Kota → Réglages, « Tablette / caisse »)</label><input id="cResaKey" type="password" autocomplete="off">
   </div>
   <div class="sheet-foot"><button class="btn" id="cfgSave">Enregistrer les réglages</button></div>
 </section>
@@ -960,6 +957,32 @@ async function onCode(code){
   scanBusy = false;
 }
 
+/* Douchette Bluetooth (clavier) : un scan rapide + Entrée, même sans champ actif */
+let wbuf = "", wat = 0;
+document.addEventListener("keydown", e => {
+  const t = e.target;
+  if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  const now = Date.now();
+  if(e.key === "Enter"){
+    const c = wbuf; wbuf = "";
+    if(c.length >= 6 && linked()){ e.preventDefault(); wedgeCode(c); }
+    return;
+  }
+  if(e.key && e.key.length === 1){ if(now - wat > 100) wbuf = ""; wbuf += e.key; wat = now; }
+});
+async function wedgeCode(code){
+  if(current && current.id === "sh-scan"){ onCode(code); return; }
+  if(code === lastCode && Date.now() - lastAt < 4000) return;
+  lastCode = code; lastAt = Date.now();
+  const p = findByCode(code);
+  if(!p){ toast(t("scanUnknown") + " (" + code + ")", true); return; }
+  try{
+    await window.KFB.inc({ [p.id]: 1 });
+    toast("✓ " + t("scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }));
+    if(navigator.vibrate) navigator.vibrate(80);
+  }catch(e){ toast(t("errSend"), true); }
+}
+
 /* ---------- Liaison avec la caisse ---------- */
 function updateScanTile(){
   const on = linked();
@@ -1137,7 +1160,7 @@ function renderInfos(){
 
 /* ---------- Rappel de fin de soirée ---------- */
 function endDate(){
-  const m = ((session && session.end) || cfg.end || "").match(/(\d{1,2})\s*[h:.]\s*(\d{0,2})/i); if(!m) return null;
+  const m = (cfg.end || "").match(/(\d{1,2})\s*[h:.]\s*(\d{0,2})/i); if(!m) return null;
   const d = new Date(); d.setHours(+m[1], +(m[2] || 0), 0, 0);
   if(+m[1] < 6 && new Date().getHours() >= 12) d.setDate(d.getDate() + 1);
   return d;
@@ -1185,53 +1208,6 @@ let racletteToggle = false, fondueToggle = false, montdorToggle = false;
 $("sRaclette").addEventListener("click", () => { racletteToggle = !racletteToggle; $("sRaclette").classList.toggle("sel", racletteToggle); });
 $("sFondue").addEventListener("click", () => { fondueToggle = !fondueToggle; $("sFondue").classList.toggle("sel", fondueToggle); });
 $("sMontdor").addEventListener("click", () => { montdorToggle = !montdorToggle; $("sMontdor").classList.toggle("sel", montdorToggle); });
-let resaFin = "";
-const RESA_API = "https://vergerdeslouves.fr/wp-json/kota/v1/jour";
-/* Ouverture automatique de la soirée : 30 min avant le début du service réservé */
-async function autoResa(){
-  if(session || !cfg.resaKey) return;
-  let x;
-  try{
-    const r = await fetch(RESA_API + "?cle=" + encodeURIComponent(cfg.resaKey) + "&t=" + Date.now());
-    if(!r.ok) return;
-    x = (await r.json()).reservation;
-  }catch(e){ return; }
-  if(!x || x.statut !== "confirmee" || session) return;
-  const flag = "kota_auto_" + x.id;
-  if(load(flag)) return;
-  const [h, mi] = String(x.debut || "19:00").split(":").map(Number);
-  const debut = new Date(); debut.setHours(h, mi || 0, 0, 0);
-  const [fh, fm] = String(x.fin || "00:00").split(":").map(Number);
-  const fin = new Date(); fin.setHours(fh, fm || 0, 0, 0); if(fin <= debut) fin.setDate(fin.getDate() + 1);
-  if(Date.now() < debut.getTime() - 30 * 60000 || Date.now() > fin.getTime()) return;
-  const f = String(x.formule || "").toLowerCase();
-  session = { group:x.nom, people:String((+x.adultes || 0) + (+x.enfants || 0)), welcome:"",
-    raclette:f.includes("raclette"), fondue:f.includes("fondue"), montdor:f.includes("mont"),
-    start:Date.now(), warned:false, racletteAsked:false, fondueAsked:false, montdorAsked:false,
-    potatoUntil:0, fondueUntil:0, montdorUntil:0, end:x.fin || "", resaId:x.id };
-  store(flag, 1); saveSession(); basket = {}; lastBill = 0; lang = "fr"; applyLang();
-  notify("Soirée ouverte automatiquement",
-    `${x.horaire}\n${x.adultes} adulte(s)${+x.enfants ? " + " + x.enfants + " enfant(s)" : ""} · ${x.formule}${x.allergies ? "\n⚠ ALLERGIES : " + x.allergies : ""}`,
-    { noAck:true, priority: x.allergies ? 4 : 3, tags:["fire"] });
-}
-autoResa(); setInterval(autoResa, 3 * 60000);
-$("sLoadResa").addEventListener("click", async () => {
-  const info = $("sResaInfo");
-  if(!cfg.resaKey){ info.textContent = "Saisis d’abord la clé des réservations dans les réglages, plus bas."; return; }
-  info.textContent = "Chargement…";
-  try{
-    const r = await fetch("https://vergerdeslouves.fr/wp-json/kota/v1/jour?cle=" + encodeURIComponent(cfg.resaKey) + "&t=" + Date.now());
-    const j = await r.json(); if(!r.ok) throw new Error(j.message || r.status);
-    const x = j.reservation;
-    if(!x){ info.textContent = "Aucune réservation du Kota aujourd’hui."; return; }
-    const f = String(x.formule || "").toLowerCase();
-    $("sGroup").value = x.nom; $("sPeople").value = (+x.adultes || 0) + (+x.enfants || 0);
-    racletteToggle = f.includes("raclette"); fondueToggle = f.includes("fondue"); montdorToggle = f.includes("mont");
-    $("sRaclette").classList.toggle("sel", racletteToggle); $("sFondue").classList.toggle("sel", fondueToggle); $("sMontdor").classList.toggle("sel", montdorToggle);
-    resaFin = x.fin || "";
-    info.textContent = x.horaire + " · " + x.adultes + " adulte(s)" + (+x.enfants ? " + " + x.enfants + " enfant(s)" : "") + " · " + x.formule + (x.allergies ? " · ⚠ Allergies : " + x.allergies : "") + " — vérifie puis « Ouvrir la soirée ».";
-  }catch(e){ info.textContent = "Impossible de lire la réservation (" + e.message + ")."; }
-});
 function fillAdmin(){
   $("sGroup").value = session?.group || ""; $("sWelcome").value = session?.welcome || ""; $("sPeople").value = session?.people || "";
   racletteToggle = !!session?.raclette; $("sRaclette").classList.toggle("sel", racletteToggle);
@@ -1243,14 +1219,14 @@ function fillAdmin(){
   $("cItems").value = cfg.items; $("cHelp").value = cfg.help; $("cHelpDe").value = cfg.helpDe; $("cHelpEn").value = cfg.helpEn; $("cSpotify").value = cfg.spotify; $("cReview").value = cfg.review;
   $("cBook").value = cfg.book; $("cGift").value = cfg.gift; $("cPhoto").value = cfg.photo || ""; $("cInsta").value = cfg.insta;
   $("cWifi").value = cfg.wifi; $("cWifiPass").value = cfg.wifiPass; $("cEnd").value = cfg.end;
-  $("cInfos").value = cfg.infos; $("cInfosDe").value = cfg.infosDe; $("cInfosEn").value = cfg.infosEn; $("cPin").value = cfg.pin; $("cResaKey").value = cfg.resaKey || "";
+  $("cInfos").value = cfg.infos; $("cInfosDe").value = cfg.infosDe; $("cInfosEn").value = cfg.infosEn; $("cPin").value = cfg.pin;
 }
 $("cfgSave").addEventListener("click", () => {
   const p = $("cPin").value.trim();
   if(!/^\d{4}$/.test(p)){ toast("Le code doit faire 4 chiffres.", true); return; }
   cfg = Object.assign(cfg, {
     name:$("cName").value.trim() || "Le kota", ...normNtfy($("cTopic").value, $("cServer").value),
-    pin:p, resaKey:$("cResaKey").value.trim(), potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
+    pin:p, potato: Math.max(1, parseInt($("cPotato").value, 10) || 15),
     fondueDelay: Math.max(1, parseInt($("cFondueDelay").value, 10) || 15), montdorDelay: Math.max(1, parseInt($("cMontdorDelay").value, 10) || 15),
     caisseCats:$("cCats").value, extras:$("cExtras").value,
     items:$("cItems").value, help:$("cHelp").value, helpDe:$("cHelpDe").value, helpEn:$("cHelpEn").value, spotify:$("cSpotify").value.trim(), review:$("cReview").value.trim(),
@@ -1270,8 +1246,7 @@ $("sessionStart").addEventListener("click", () => {
   session = { group:$("sGroup").value.trim(), people:$("sPeople").value.trim(), welcome:$("sWelcome").value.trim(),
     raclette:racletteToggle, fondue:fondueToggle, montdor:montdorToggle,
     start:Date.now(), warned:false, racletteAsked:false, fondueAsked:false, montdorAsked:false,
-    potatoUntil:0, fondueUntil:0, montdorUntil:0, end: resaFin };
-  resaFin = "";
+    potatoUntil:0, fondueUntil:0, montdorUntil:0 };
   saveSession(); basket = {}; lastBill = 0; lang = "fr"; closeSheet(); applyLang();
   toast("Soirée ouverte. Bonne soirée à eux !");
 });
