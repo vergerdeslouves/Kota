@@ -365,7 +365,7 @@ label.f{display:block;margin:14px 0 6px;color:var(--birch-dim);font-size:15px;fo
 </section>
 
 <section class="sheet" id="sh-admin" role="dialog">
-  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 16</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
+  <div class="sheet-head"><h3>Espace équipe <small style="font-family:var(--ui);font-size:15px;color:var(--birch-dim)">version 18</small></h3><button class="close" data-close aria-label="Fermer">×</button></div>
   <div class="sheet-body">
     <div class="cat">Soirée en cours</div>
     <div class="row2">
@@ -507,6 +507,7 @@ const T = {
     ack:"C’est noté, quelqu’un arrive !", ackPotato:"Vos pommes de terre sont en route !",
     errConfig:"Les notifications ne sont pas réglées. Venez nous voir directement.",
     errSend:"Le message n’est pas parti. Vérifiez le Wi-Fi ou venez nous voir.",
+    queued:"Pas de Wi-Fi pour l’instant : votre message partira dès qu’il revient. Si c’est urgent, venez nous voir.", offline:"Pas de connexion internet. Si besoin, venez nous voir directement.", scanQueued:"{n} ajouté à votre note (transmis dès le retour du Wi-Fi)", scanNoLink:"Le scanner n’est pas relié à la caisse. Appelez l’équipe.",
     scanT:"Scanner ma boisson", scanS:"Elle s’ajoute à votre note",
     scanIntro:"Présentez le code-barres de votre bouteille devant la caméra.",
     scanAdded:"{n} ajouté à votre note", scanUnknown:"Code non reconnu. Appelez l’équipe si besoin.",
@@ -560,7 +561,7 @@ const T = {
     errSend:"Die Nachricht wurde nicht gesendet. Prüfen Sie das WLAN oder kommen Sie zu uns.",
     scanT:"Getränk scannen", scanS:"Wird Ihrer Rechnung hinzugefügt",
     scanIntro:"Halten Sie den Strichcode Ihrer Flasche vor die Kamera.",
-    scanAdded:"{n} wurde Ihrer Rechnung hinzugefügt", scanUnknown:"Code nicht erkannt. Rufen Sie bei Bedarf das Team.",
+    scanAdded:"{n} wurde Ihrer Rechnung hinzugefügt", queued:"Gerade kein WLAN: Ihre Nachricht wird gesendet, sobald es wieder da ist. Wenn es dringend ist, kommen Sie zu uns.", offline:"Keine Internetverbindung. Kommen Sie bei Bedarf direkt zu uns.", scanQueued:"{n} wurde Ihrer Rechnung hinzugefügt (wird gesendet, sobald das WLAN wieder da ist)", scanNoLink:"Der Scanner ist nicht mit der Kasse verbunden. Rufen Sie das Team.", scanUnknown:"Code nicht erkannt. Rufen Sie bei Bedarf das Team.",
     scanNoCam:"Die Kamera ist nicht verfügbar. Bitte erlauben Sie den Zugriff oder rufen Sie das Team.",
     scanUnsupported:"Scannen ist auf diesem Gerät nicht möglich. Rufen Sie bei Bedarf das Team.",
     scanLoadFail:"Scannen konnte nicht geladen werden. Bitte Internetverbindung prüfen und erneut versuchen."
@@ -611,7 +612,7 @@ const T = {
     errSend:"The message wasn’t sent. Check the Wi-Fi or come and see us.",
     scanT:"Scan my drink", scanS:"Added to your tab",
     scanIntro:"Hold your bottle’s barcode in front of the camera.",
-    scanAdded:"{n} added to your tab", scanUnknown:"Code not recognised. Call the team if needed.",
+    scanAdded:"{n} added to your tab", queued:"No Wi-Fi right now: your message will be sent as soon as it’s back. If it’s urgent, come and see us.", offline:"No internet connection. If you need anything, come and see us.", scanQueued:"{n} added to your tab (sent as soon as the Wi-Fi is back)", scanNoLink:"The scanner isn’t linked to the till. Please call the team.", scanUnknown:"Code not recognised. Call the team if needed.",
     scanNoCam:"The camera isn’t available. Allow access or call the team.",
     scanUnsupported:"Scanning isn’t possible on this device. Call the team if needed.",
     scanLoadFail:"Scanning couldn’t load. Check your internet connection and try again."
@@ -741,13 +742,55 @@ async function notify(title, message, opts = {}){
     tags: opts.tags || []
   };
   if(!opts.noAck) body.actions = [{ action:"http", label: opts.ackLabel || "On arrive", url:`${serverUrl()}/${cfg.topic}-retour`, method:"POST", body:id, clear:true }];
+  pending[id] = opts.kind || "generic";
   try{
-    const r = await fetch(serverUrl() + "/", { method:"POST", body: JSON.stringify(body) });
-    if(!r.ok) throw new Error(r.status);
-    pending[id] = opts.kind || "generic";
+    await postNtfy(body);
     return id;
-  }catch(e){ toast(t("errSend"), true); return null; }
+  }catch(e){
+    // Pas de réseau : on garde le message et on le renvoie dès que le Wi-Fi revient
+    outbox.push(body); store("kota_outbox", outbox); updateNet();
+    toast(t("queued"), true);
+    return id;
+  }
 }
+async function postNtfy(body){
+  const ctl = ("AbortController" in window) ? new AbortController() : null;
+  const tm = setTimeout(() => { if(ctl) ctl.abort(); }, 8000);
+  try{
+    const r = await fetch(serverUrl() + "/", { method:"POST", body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined });
+    if(!r.ok) throw new Error(r.status);
+    netOk = true; return true;
+  }catch(e){ netOk = false; throw e; }
+  finally{ clearTimeout(tm); updateNet(); }
+}
+let outbox = load("kota_outbox") || [], netOk = true, flushing = false;
+async function flushOutbox(){
+  if(flushing || !outbox.length) return;
+  flushing = true;
+  try{
+    while(outbox.length){
+      const b = outbox[0];
+      b.message = (b.message || "") + "\n\n⏱ Envoyé en retard (coupure Wi-Fi)";
+      try{ await postNtfy(b); }catch(e){ b.message = b.message.replace(/\n\n⏱ Envoyé en retard \(coupure Wi-Fi\)$/, ""); break; }
+      outbox.shift(); store("kota_outbox", outbox);
+    }
+  } finally { flushing = false; updateNet(); }
+}
+function updateNet(){
+  let el = document.getElementById("netBanner");
+  if(!el){
+    el = document.createElement("div"); el.id = "netBanner";
+    el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:#8C2B1F;color:#fff;font-weight:600;text-align:center;display:none";
+    document.body.appendChild(el);
+  }
+  const off = !navigator.onLine || !netOk || outbox.length > 0;
+  el.textContent = "📶 " + t("offline");
+  el.style.display = off ? "block" : "none";
+}
+window.addEventListener("online", () => { netOk = true; flushOutbox(); updateNet(); });
+window.addEventListener("offline", updateNet);
+setInterval(() => { if(outbox.length) flushOutbox(); }, 15000);
+setTimeout(() => { updateNet(); flushOutbox(); }, 1500);
 let es = null;
 function listenAcks(){
   try{
@@ -848,7 +891,7 @@ $("manqueSend").addEventListener("click", async () => {
   const toTicket = {};
   entries.forEach(e => { if(e.it.pid != null) toTicket[e.it.pid] = (toTicket[e.it.pid] || 0) + e.q; });
   if(linked() && Object.keys(toTicket).length){
-    try{ await window.KFB.inc(toTicket); lines.push("", "✓ Déjà ajouté au ticket du kota dans la caisse"); }
+    try{ const r = await window.KFB.inc(toTicket); lines.push("", r === "queued" ? "✓ Ajouté au ticket du kota (transmis à la caisse dès le retour du Wi-Fi)" : "✓ Déjà ajouté au ticket du kota dans la caisse"); }
     catch(e){ lines.push("", "⚠ Non ajouté à la caisse, à saisir à la main"); }
   }
   if(await notify("Il manque…", lines.join("\n"), { tags:["fire"] })){
@@ -950,11 +993,11 @@ async function onCode(code){
   if(scanBusy) return;
   scanBusy = true;
   try{
-    await window.KFB.inc({ [p.id]: 1 });
-    scanMsg("✓ " + t("scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }), "ok");
+    const r = await window.KFB.inc({ [p.id]: 1 });
+    scanMsg("✓ " + t(r === "queued" ? "scanQueued" : "scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }), "ok");
     if(navigator.vibrate) navigator.vibrate(80);
   }catch(e){ scanMsg(t("errSend"), "err"); }
-  scanBusy = false;
+  finally{ scanBusy = false; }
 }
 
 /* Douchette Bluetooth (clavier) : un scan rapide + Entrée, même sans champ actif */
@@ -965,7 +1008,7 @@ document.addEventListener("keydown", e => {
   const now = Date.now();
   if(e.key === "Enter"){
     const c = wbuf; wbuf = "";
-    if(c.length >= 6 && linked()){ e.preventDefault(); wedgeCode(c); }
+    if(c.length >= 6){ e.preventDefault(); if(linked()) wedgeCode(c); else toast(t("scanNoLink"), true); }
     return;
   }
   if(e.key && e.key.length === 1){ if(now - wat > 100) wbuf = ""; wbuf += e.key; wat = now; }
@@ -977,8 +1020,8 @@ async function wedgeCode(code){
   const p = findByCode(code);
   if(!p){ toast(t("scanUnknown") + " (" + code + ")", true); return; }
   try{
-    await window.KFB.inc({ [p.id]: 1 });
-    toast("✓ " + t("scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }));
+    const r = await window.KFB.inc({ [p.id]: 1 });
+    toast("✓ " + t(r === "queued" ? "scanQueued" : "scanAdded", { n:`${p.name} (${fmtEur(p.price)})` }));
     if(navigator.vibrate) navigator.vibrate(80);
   }catch(e){ toast(t("errSend"), true); }
 }
@@ -1285,13 +1328,21 @@ try{
   const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } = await import(B + "firebase-auth.js");
   const F = await import(B + "firebase-firestore.js");
   const app = initializeApp({ apiKey:"AIzaSyA4gZNKa_-v8cq9KouitpoFLwyNbtWwCl4", authDomain:"verger-caisse.firebaseapp.com", projectId:"verger-caisse", storageBucket:"verger-caisse.firebasestorage.app", messagingSenderId:"682849701036", appId:"1:682849701036:web:2be81c70af8547e3976309" });
-  const auth = getAuth(app), db = F.getFirestore(app);
+  const auth = getAuth(app);
+  let db;
+  try{ db = F.initializeFirestore(app, { localCache: F.persistentLocalCache() }); }catch(e){ db = F.getFirestore(app); }
+  // Une écriture ne bloque jamais l’appli : sans Wi-Fi, elle est gardée sur la tablette et part au retour du réseau
+  const write = (data, ms) => {
+    const p = F.setDoc(F.doc(db, "kota", "ticket"), data, { merge: true }).then(() => "ok");
+    p.catch(() => {});
+    return Promise.race([p, new Promise(r => setTimeout(() => r("queued"), ms || 4000))]);
+  };
   let unsub = null;
   window.KFB = {
     user: null,
     signIn: pw => signInWithEmailAndPassword(auth, EMAIL, pw),
     signOut: () => signOut(auth),
-    inc: lines => F.setDoc(F.doc(db, "kota", "ticket"), { lines: Object.fromEntries(Object.entries(lines).map(([k, v]) => [String(k), F.increment(v)])), t: Date.now() }, { merge: true })
+    inc: lines => write({ lines: Object.fromEntries(Object.entries(lines).map(([k, v]) => [String(k), F.increment(v)])), t: Date.now() })
   };
   onAuthStateChanged(auth, u => {
     window.KFB.user = u;
@@ -1301,6 +1352,9 @@ try{
       () => window.dispatchEvent(new CustomEvent("kfb-products", { detail: null })));
     window.dispatchEvent(new Event("kfb-auth"));
   });
+  // Signal de vie toutes les minutes : la caisse voit si la tablette du kota a perdu le Wi-Fi
+  const ping = () => { if(window.KFB.user && navigator.onLine) write({ ping: Date.now() }, 1).catch(() => {}); };
+  setInterval(ping, 60000); setTimeout(ping, 5000);
 }catch(e){ window.KFB_FAIL = true; window.dispatchEvent(new Event("kfb-auth")); }
 </script>
 </body>
